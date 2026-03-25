@@ -10,6 +10,11 @@ body{
   font-family:monospace;
   color:white;
   overflow:hidden;
+
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
 }
 
 /* BACKGROUND */
@@ -25,10 +30,8 @@ body{
 
 /* CONTENT */
 .container{
-  position:relative;
   text-align:center;
-  top:55%; /* nudged down from 50% */
-  transform:translateY(-50%);
+  transform:translateY(80px); /* <-- REAL downward control */
 }
 
 h1{
@@ -42,10 +45,9 @@ h1{
   font-size:14px;
 }
 
-/* FIXED GRID */
 .grid{
   display:grid;
-  grid-template-columns:repeat(3, 200px); /* 3 columns so 6 buttons fit cleanly */
+  grid-template-columns:repeat(3, 200px);
   gap:15px;
   justify-content:center;
   margin-bottom:25px;
