@@ -8,12 +8,8 @@
 body{
   margin:0;
   font-family:monospace;
-  background:#111;
   color:white;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
+  overflow:hidden;
 }
 
 /* BACKGROUND */
@@ -27,38 +23,74 @@ body{
   background:#000;
 }
 
-h1{
-  margin-bottom:30px;
+/* CONTENT */
+.container{
+  position:relative;
+  text-align:center;
+  top:50%;
+  transform:translateY(-50%);
 }
 
+h1{
+  margin-bottom:10px;
+  text-shadow:0 0 10px #0ff;
+}
+
+.warning{
+  color:#ff4444;
+  margin-bottom:25px;
+  font-size:14px;
+}
+
+/* FIXED GRID */
 .grid{
   display:grid;
-  grid-template-columns:repeat(2, 200px);
+  grid-template-columns:repeat(3, 200px); /* 3 columns so 6 buttons fit cleanly */
   gap:15px;
   justify-content:center;
+  margin-bottom:25px;
 }
 
 a{
   display:block;
   padding:15px;
-  background:#222;
+  background:rgba(20,20,20,0.85);
   border-radius:10px;
   text-decoration:none;
   color:white;
   transition:0.2s;
+  backdrop-filter:blur(4px);
 }
 
 a:hover{
-  background:#444;
-  transform:scale(1.05);
+  background:#0ff;
+  color:black;
+  transform:scale(1.08);
+}
+
+.main-site{
+  display:inline-block;
+  padding:15px 25px;
+  background:#550000;
+  border-radius:10px;
+  text-decoration:none;
+  color:white;
+  font-weight:bold;
+}
+
+.main-site:hover{
+  background:#ff0000;
 }
 </style>
-
 </head>
+
 <body>
+
+<canvas id="bg"></canvas>
 
 <div class="container">
   <h1>FloofyTech Portal</h1>
+  <div class="warning">⚠ site UNSTABLE</div>
 
   <div class="grid">
     <a href="a-a-a-test.html">A A A Test</a>
@@ -68,7 +100,57 @@ a:hover{
     <a href="neongrid.html">Neon Grid</a>
     <a href="wall.html">Wall</a>
   </div>
+
+  <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
+    Go to Main Site (UNSTABLE)
+  </a>
 </div>
+
+<script>
+const canvas = document.getElementById("bg");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+let offset = 0;
+
+function draw(){
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.strokeStyle = "#00ffff";
+  ctx.lineWidth = 1;
+
+  const spacing = 40;
+  offset += 0.5;
+
+  for(let x=-spacing; x<canvas.width+spacing; x+=spacing){
+    ctx.beginPath();
+    ctx.moveTo(x + (offset % spacing), 0);
+    ctx.lineTo(x + (offset % spacing), canvas.height);
+    ctx.stroke();
+  }
+
+  for(let y=-spacing; y<canvas.height+spacing; y+=spacing){
+    ctx.beginPath();
+    ctx.moveTo(0, y + (offset % spacing));
+    ctx.lineTo(canvas.width, y + (offset % spacing));
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "rgba(0,255,255,0.05)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  requestAnimationFrame(draw);
+}
+
+draw();
+</script>
 
 </body>
 </html>
