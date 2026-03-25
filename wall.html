@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Parkour City — C.2</title>
+
+<style>
+  #game {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  #startMenu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+    background: rgba(0,0,0,0.7);
+    padding: 20px 40px;
+    border-radius: 10px;
+    color: white;
+    font-family: sans-serif;
+    text-align: center;
+  }
+
+  #startBtn {
+    padding: 12px 24px;
+    font-size: 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    background: #00aaff;
+    color: white;
+    margin-top: 10px;
+  }
+
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 9998;
+    color: white;
+    font-family: sans-serif;
+    display: none;
+  }
+</style>
+
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="startMenu">
+  <h1>Parkour City</h1>
+  <button id="startBtn">Start Game</button>
+</div>
+
+<div id="hud">
+  <div id="health">HP: 100</div>
+  <div id="flow">Flow: 0</div>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164/build/three.module.js";
+
+/* -----------------------------------------------------------
+   RENDERER + SCENE + CAMERA
+----------------------------------------------------------- */
+const canvas = document.getElementById("game");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+renderer.shadowMap.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xd8ecff); // Mirror's Edge sky
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2000);
+camera.position.set(0, 1.7, 0);
+
+/* -----------------------------------------------------------
+   UI / START GAME
+----------------------------------------------------------- */
+let gameStarted = false;
+
+const startBtn = document.getElementById("startBtn");
+const startMenu = document.getElementById("startMenu");
+const hud = document.getElementById("hud");
+
+startBtn.addEventListener("click", () => {
+  startMenu.style.display = "none";
+  hud.style.display = "block";
+  gameStarted = true;
+  canvas.requestPointerLock();
+});
+
+/* -----------------------------------------------------------
+   LIGHTING — Mirror's Edge style
+----------------------------------------------------------- */
+scene.add(new THREE.HemisphereLight(0xe0f7ff, 0x202020, 0.9));
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(50, 120, 40);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+scene.add(sun);
+
+/* -----------------------------------------------------------
+   WORLD BASE
+----------------------------------------------------------- */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(2000, 2000),
+  new THREE.MeshStandardMaterial({color:0x111111})
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const buildings = [];
+const ladders = [];
+
+/* -----------------------------------------------------------
+   MATERIALS
+----------------------------------------------------------- */
+const buildingMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  roughness: 0.35,
+  metalness: 0.1
+});
+
+const propMat = new THREE.MeshStandardMaterial({
+  color: 0xff3b30,
+  roughness: 0.4
+});
+
+const traversalMatRed = new THREE.MeshStandardMaterial({
+  color: 0xff3b30,
+  roughness: 0.3,
+  metalness: 0.1
+});
+
+const traversalMatCyan = new THREE.MeshStandardMaterial({
+  color: 0x00c8ff,
+  roughness: 0.3,
+  metalness: 0.1
+});
+
+/* -----------------------------------------------------------
+   ROOFTOP PROPS
+----------------------------------------------------------- */
+function addRooftopProps(b){
+  const h = b.geometry.parameters.height;
+  const w = b.geometry.parameters.width;
+
+  function r(){ return Math.random()*w/2 - w/4; }
+
+  const ac = new THREE.Mesh(new THREE.BoxGeometry(1,0.5,1), propMat);
+  ac.position.set(b.position.x+r(), b.position.y+h/2+0.25, b.position.z+r());
+  ac.castShadow = true;
+  scene.add(ac);
+
+  const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,1,12), propMat);
+  vent.position.set(b.position.x+r(), b.position.y+h/2+0.5, b.position.z+r());
+  vent.castShadow = true;
+  scene.add(vent);
+}
+
+/* -----------------------------------------------------------
+   MIRROR'S EDGE TRAVERSAL PROPS
+----------------------------------------------------------- */
+function addWallrunPanel(b){
+  const h = b.geometry.parameters.height;
+
+  const panel = new THREE.Mesh(
+    new THREE.BoxGeometry(b.geometry.parameters.width * 0.8, 0.2, 0.3),
+    traversalMatRed
+  );
+
+  panel.position.set(
+    b.position.x,
+    b.position.y + h * 0.4,
+    b.position.z + (b.geometry.parameters.depth/2 + 0.2)
+  );
+
+  panel.castShadow = true;
+  scene.add(panel);
+}
+
+function addVaultBar(b){
+  const bar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.1, 2, 12),
+    traversalMatRed
+  );
+
+  bar.rotation.z = Math.PI/2;
+  bar.position.set(
+    b.position.x,
+    b.position.y + b.geometry.parameters.height + 0.8,
+    b.position.z
+  );
+
+  bar.castShadow = true;
+  scene.add(bar);
+}
+
+function addJumpRail(b){
+  const rail = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 0.15, 0.15),
+    traversalMatCyan
+  );
+
+  rail.position.set(
+    b.position.x + (Math.random()*2 - 1) * 2,
+    b.position.y + b.geometry.parameters.height + 0.2,
+    b.position.z + (Math.random()*2 - 1) * 2
+  );
+
+  rail.castShadow = true;
+  scene.add(rail);
+}
+
+function addWallrunRamp(b){
+  const ramp = new THREE.Mesh(
+    new THREE.BoxGeometry(2, 0.2, 1),
+    traversalMatRed
+  );
+
+  ramp.rotation.x = -Math.PI/6;
+  ramp.position.set(
+    b.position.x,
+    b.position.y + 1,
+    b.position.z - b.geometry.parameters.depth/2 - 0.5
+  );
+
+  ramp.castShadow = true;
+  scene.add(ramp);
+}
+
+/* -----------------------------------------------------------
+   LADDERS
+----------------------------------------------------------- */
+function addLadder(b){
+  const h = b.geometry.parameters.height;
+
+  const ladder = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, h, 0.5),
+    new THREE.MeshStandardMaterial({color:0xffcc00})
+  );
+
+  ladder.position.set(
+    b.position.x + b.geometry.parameters.width/2 + 0.3,
+    b.position.y,
+    b.position.z
+  );
+
+  ladder.castShadow = true;
+  scene.add(ladder);
+  ladders.push(ladder);
+}
+
+/* -----------------------------------------------------------
+   BUILDINGS
+----------------------------------------------------------- */
+function addBuilding(x,z,w,d,h){
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), buildingMat);
+  mesh.position.set(x, h/2, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  buildings.push(mesh);
+
+  addRooftopProps(mesh);
+  addLadder(mesh);
+
+  // Mirror's Edge traversal props
+  if(Math.random() < 0.4) addWallrunPanel(mesh);
+  if(Math.random() < 0.3) addVaultBar(mesh);
+  if(Math.random() < 0.5) addJumpRail(mesh);
+  if(Math.random() < 0.25) addWallrunRamp(mesh);
+}
+
+/* -----------------------------------------------------------
+   INFINITE TIGHT CITY
+----------------------------------------------------------- */
+let cityChunks = new Set();
+function chunkKey(x,z){ return `${x},${z}`; }
+
+function generateChunk(cx,cz){
+  const key = chunkKey(cx,cz);
+  if(cityChunks.has(key)) return;
+  cityChunks.add(key);
+
+  for(let i=0;i<12;i++){
+    const x = cx*90 + (Math.random()*60 - 30);
+    const z = cz*90 + (Math.random()*60 - 30);
+
+    const h = (2 + Math.random()*6) * 7;
+    const w = 6 + Math.random()*5;
+    const d = 6 + Math.random()*5;
+
+    addBuilding(x,z,w,d,h);
+  }
+}
+
+function updateInfiniteCity(){
+  const cx = Math.floor(camera.position.x / 90);
+  const cz = Math.floor(camera.position.z / 90);
+
+  for(let dx=-1;dx<=1;dx++){
+    for(let dz=-1;dz<=1;dz++){
+      generateChunk(cx+dx, cz+dz);
+    }
+  }
+}
+
+/* -----------------------------------------------------------
+   BRIDGES — Mirror's Edge red
+----------------------------------------------------------- */
+function addBridge(b1,b2){
+  const y = Math.min(
+    b1.position.y + b1.geometry.parameters.height/2,
+    b2.position.y + b2.geometry.parameters.height/2
+  ) + 0.2;
+
+  const start = new THREE.Vector3(b1.position.x,y,b1.position.z);
+  const end   = new THREE.Vector3(b2.position.x,y,b2.position.z);
+
+  const length = start.distanceTo(end);
+
+  const bridge = new THREE.Mesh(
+    new THREE.BoxGeometry(length,0.25,1.5),
+    traversalMatRed
+  );
+
+  bridge.position.copy(start).lerp(end,0.5);
+  bridge.lookAt(end);
+  bridge.rotation.x = 0;
+
+  bridge.castShadow = true;
+  bridge.receiveShadow = true;
+  scene.add(bridge);
+}
+
+function generateBridges(){
+  for(let i=0;i<buildings.length;i++){
+    for(let j=i+1;j<buildings.length;j++){
+      const b1 = buildings[i];
+      const b2 = buildings[j];
+
+      const dx = Math.abs(b1.position.x - b2.position.x);
+      const dz = Math.abs(b1.position.z - b2.position.z);
+
+      if(dx < 8 && dz < 8){
+        addBridge(b1,b2);
+      }
+    }
+  }
+}
+
+/* -----------------------------------------------------------
+   PARKOUR SYSTEM — Mirror's Edge tuned
+----------------------------------------------------------- */
+const keys = {};
+onkeydown = e => keys[e.code] = true;
+onkeyup   = e => keys[e.code] = false;
+
+let velocity = new THREE.Vector3();
+let canJump = false;
+let flow = 0;
+
+function updateCameraLook(){
+  if(keys["ArrowLeft"])  camera.rotation.y += 0.04;
+  if(keys["ArrowRight"]) camera.rotation.y -= 0.04;
+  if(keys["ArrowUp"])    camera.rotation.x += 0.02;
+  if(keys["ArrowDown"])  camera.rotation.x -= 0.02;
+
+  camera.rotation.x = Math.max(-1.2, Math.min(1.2, camera.rotation.x));
+}
+
+function detectWallRun(){
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dir.y = 0;
+  dir.normalize();
+
+  const right = new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0)).normalize();
+  const left  = right.clone().multiplyScalar(-1);
+
+  const rayRight = new THREE.Raycaster(camera.position, right, 0, 1);
+  const rayLeft  = new THREE.Raycaster(camera.position, left, 0, 1);
+
+  if(rayRight.intersectObjects(buildings).length > 0) return "right";
+  if(rayLeft.intersectObjects(buildings).length > 0) return "left";
+  return null;
+}
+
+function detectVault(){
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dir.y = 0;
+  dir.normalize();
+
+  const ray = new THREE.Raycaster(camera.position, dir, 0, 1.2);
+  const hit = ray.intersectObjects(buildings);
+  if(hit.length === 0) return false;
+
+  const h = hit[0].object.geometry.parameters.height;
+  return h <= 1.2;
+}
+
+function detectMantle(){
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  dir.y = 0;
+  dir.normalize();
+
+  const ray = new THREE.Raycaster(camera.position, dir, 0, 1.5);
+  const hit = ray.intersectObjects(buildings);
+  if(hit.length === 0) return false;
+
+  const top = hit[0].object.position.y + hit[0].object.geometry.parameters.height/2;
+  return top > camera.position.y && top - camera.position.y < 1.2;
+}
+
+function checkCollisions(pos, radius=0.6, height=1.7){
+  let grounded = false;
+
+  if(pos.y < height){
+    pos.y = height;
+    grounded = true;
+  }
+
+  for(const b of buildings){
+    const bx = b.position.x;
+    const by = b.position.y;
+    const bz = b.position.z;
+    const sx = b.geometry.parameters.width;
+    const sy = b.geometry.parameters.height;
+    const sz = b.geometry.parameters.depth;
+
+    const minX = bx - sx/2 - radius;
+    const maxX = bx + sx/2 + radius;
+    const minZ = bz - sz/2 - radius;
+    const maxZ = bz + sz/2 + radius;
+
+    const topY = by + sy/2;
+    const roofY = topY + 0.05;
+
+    if(pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ){
+      if(pos.y >= topY && pos.y <= roofY + height){
+        pos.y = roofY + height;
+        grounded = true;
+      } else {
+        const dx1 = Math.abs(pos.x - minX);
+        const dx2 = Math.abs(pos.x - maxX);
+        const dz1 = Math.abs(pos.z - minZ);
+        const dz2 = Math.abs(pos.z - maxZ);
+        const minPen = Math.min(dx1,dx2,dz1,dz2);
+        if(minPen===dx1) pos.x = minX;
+        else if(minPen===dx2) pos.x = maxX;
+        else if(minPen===dz1) pos.z = minZ;
+        else pos.z = maxZ;
+      }
+    }
+  }
+
+  return grounded;
+}
+
+/* -----------------------------------------------------------
+   MAIN LOOP — Mirror's Edge speed tuning
+----------------------------------------------------------- */
+let prev = performance.now();
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  const now = performance.now();
+  const dt = (now - prev)/1000;
+  prev = now;
+
+  if(gameStarted){
+    updateInfiniteCity();
+    updateCameraLook();
+    generateBridges();
+
+    const dir = new THREE.Vector3();
+    const forward = new THREE.Vector3(
+      -Math.sin(camera.rotation.y),
+      0,
+      -Math.cos(camera.rotation.y)
+    ).normalize();
+    const right = new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).normalize();
+
+    if(keys["KeyW"]) dir.add(forward);
+    if(keys["KeyS"]) dir.sub(forward);
+    if(keys["KeyA"]) dir.sub(right);
+    if(keys["KeyD"]) dir.add(right);
+    dir.normalize();
+
+    const targetSpeed = 16;
+    const targetVel = dir.multiplyScalar(targetSpeed);
+
+    velocity.x = THREE.MathUtils.damp(velocity.x,targetVel.x,18,dt);
+    velocity.z = THREE.MathUtils.damp(velocity.z,targetVel.z,18,dt);
+
+    velocity.y -= 38 * dt;
+
+    for(const ladder of ladders){
+      const dx = Math.abs(camera.position.x - ladder.position.x);
+      const dz = Math.abs(camera.position.z - ladder.position.z);
+      if(dx < 1 && dz < 1){
+        if(keys["KeyW"]) velocity.y = 4;
+        if(keys["KeyS"]) velocity.y = -4;
+      }
+    }
+
+    const wallSide = detectWallRun();
+    if(!canJump && wallSide){
+      velocity.y = Math.max(velocity.y, -2);
+      const push = wallSide === "right" ? -1 : 1;
+      velocity.x += push * 3 * dt;
+
+      camera.rotation.z = THREE.MathUtils.damp(
+        camera.rotation.z,
+        wallSide === "right" ? -0.25 : 0.25,
+        5,
+        dt
+      );
+
+      if(keys["Space"]){
+        velocity.y = 7;
+        velocity.x += push * -8;
+      }
+    } else {
+      camera.rotation.z = THREE.MathUtils.damp(camera.rotation.z, 0, 5, dt);
+    }
+
+    if(detectVault() && keys["KeyW"]){
+      velocity.y = 3;
+    }
+
+    if(detectMantle() && keys["Space"]){
+      camera.position.y += 1.2;
+      velocity.y = 0;
+    }
+
+    if(keys["Space"] && canJump){
+      velocity.y = 7;
+      canJump = false;
+    }
+
+    const pos = camera.position.clone();
+pos.addScaledVector(velocity, dt);
+
+const grounded = checkCollisions(pos);
+if (grounded) {
+  velocity.y = 0;
+  canJump = true;
+}
+
+camera.position.copy(pos);
+
+// FLOW + FOV BOOST (Mirror’s Edge feel)
+const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
+flow = THREE.MathUtils.damp(flow, speed * 10, 2, dt);
+camera.fov = THREE.MathUtils.damp(camera.fov, 80 + Math.min(22, flow * 0.55), 4, dt);
+camera.updateProjectionMatrix();
+}
+
+renderer.render(scene, camera);
+}
+animate();
+
+</script>
+</body>
+</html>
+

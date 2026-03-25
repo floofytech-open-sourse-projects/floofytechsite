@@ -1,0 +1,743 @@
+<!DOCTYPE html>  <html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Neon Grid RPG</title>
+<style>
+html,body{margin:0;padding:0;background:#000;color:#00f0ff;font-family:"Courier New",monospace;overflow:hidden}
+#game{width:100vw;height:100vh;display:flex;flex-direction:row}
+#grid-container{flex:1;display:flex;justify-content:center;align-items:center;position:relative}
+#grid{display:grid;grid-template-columns:repeat(15,24px);grid-template-rows:repeat(15,24px);gap:2px}
+.tile{width:24px;height:24px;background:#050505;border:1px solid #0a0a0a;box-shadow:0 0 4px #001a1a}
+.tile.player{background:#00ffff;box-shadow:0 0 10px #00ffff}
+.tile.enemy{background:#ff0066;box-shadow:0 0 10px #ff0066}
+.tile.npc{background:#00ff00;box-shadow:0 0 10px #00ff00}
+.tile.boss{background:#ff0000;box-shadow:0 0 10px #ff0000}
+.tile.lydia{background:#ff00ff;box-shadow:0 0 10px #ff00ff}
+#ui{width:380px;background:rgba(0,0,0,.85);border-left:2px solid #00ffff;padding:20px;display:flex;flex-direction:column;overflow-y:auto}
+h1{font-size:22px;margin:0 0 10px 0;color:#00ffff;text-shadow:0 0 8px #00ffff}
+.panel{border:1px solid #00ffff;padding:10px;margin-bottom:15px;background:rgba(0,20,20,.4);box-shadow:0 0 10px #003333 inset}
+button{background:#001a1a;border:1px solid #00ffff;color:#00ffff;padding:6px 10px;margin:3px 2px;cursor:pointer;font-family:inherit;font-size:12px;transition:.2s}
+button:hover{background:#003333;box-shadow:0 0 10px #00ffff}
+#message-box{min-height:60px}
+#action-buttons{display:flex;flex-wrap:wrap}
+#action-buttons button{flex:1 1 45%}
+#movement-buttons{display:flex;flex-direction:column;align-items:center;margin-top:8px}
+#movement-buttons-row{display:flex;justify-content:center}
+#movement-buttons button{width:40px}
+#combat-screen{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.95);display:none;flex-direction:row;justify-content:center;align-items:center;color:#00ffff;z-index:20}
+#combat-left{width:60%;padding:10px}
+#combat-right{width:25%;padding:10px;border-left:1px solid #00ffff}
+#combat-log{width:100%;height:220px;overflow-y:auto;border:1px solid #00ffff;padding:10px;background:rgba(0,20,20,.4);margin-bottom:10px;font-size:13px}
+#combat-buttons{display:flex;flex-wrap:wrap;justify-content:center;width:100%}
+#combat-buttons button{flex:1 1 30%;margin:4px}
+.healthbar{height:10px;background:#003333;border:1px solid #00ffff;margin:2px 0;position:relative}
+.healthbar-fill{height:100%;background:#00ffff;width:100%}
+.turn-entry{font-size:12px;margin:2px 0}
+.turn-active{color:#ffff00}
+#gamepad-toggle{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:10}
+#gamepad{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:9;background:rgba(0,0,0,.8);border:1px solid #00ffff;padding:10px;border-radius:10px;display:none}
+#gamepad-inner{display:flex;align-items:center;justify-content:center}
+#gamepad-dpad,#gamepad-buttons{display:flex;flex-direction:column;align-items:center}
+#gamepad-dpad-row{display:flex}
+#gamepad-dpad button,#gamepad-buttons button,#gamepad-center button{width:40px;height:40px;margin:3px;border-radius:6px}
+#gamepad-buttons-row{display:flex}
+#gamepad-center{display:flex;justify-content:center;margin-top:4px}
+#gamepad-center button{width:70px}
+#crt-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.96);display:none;flex-direction:column;justify-content:center;align-items:center;color:#00f0ff;z-index:30;font-family:"Courier New",monospace}
+#crt-window{width:70%;max-width:900px;border:2px solid #00ffff;padding:20px;background:radial-gradient(circle at top,#001020 0,#000 70%);position:relative;box-shadow:0 0 25px #00ffff}
+#crt-title{font-size:18px;margin-bottom:10px;color:#00ffff;text-shadow:0 0 8px #00ffff}
+#crt-body{font-size:13px;line-height:1.4;max-height:320px;overflow-y:auto;white-space:pre-wrap}
+#crt-options{margin-top:10px;display:flex;flex-wrap:wrap;justify-content:flex-start}
+#crt-options button{flex:1 1 45%;margin:4px 4px}
+#crt-exit{margin-top:12px;width:100%}
+#crt-scanlines{pointer-events:none;position:absolute;inset:0;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.1) 0,rgba(0,0,0,.1) 2px,rgba(0,0,0,.4) 3px);mix-blend-mode:multiply;opacity:.7}
+#crt-window::before{content:"";position:absolute;inset:-40px;border-radius:50%;box-shadow:0 0 80px rgba(0,255,255,.4);opacity:.4;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="grid-container">
+    <div id="grid"></div>
+    <button id="gamepad-toggle">GAMEPAD</button>
+    <div id="gamepad">
+      <div id="gamepad-inner">
+        <div id="gamepad-dpad">
+          <button data-gp="up">▲</button>
+          <div id="gamepad-dpad-row">
+            <button data-gp="left">◀</button>
+            <button data-gp="down">▼</button>
+            <button data-gp="right">▶</button>
+          </div>
+        </div>
+        <div style="width:40px;"></div>
+        <div id="gamepad-buttons">
+          <div id="gamepad-buttons-row">
+            <button data-gp="a">A</button>
+            <button data-gp="b">B</button>
+          </div>
+          <div id="gamepad-buttons-row">
+            <button data-gp="x">X</button>
+            <button data-gp="y">Y</button>
+          </div>
+        </div>
+      </div>
+      <div id="gamepad-center">
+        <button data-gp="start">Start</button>
+        <button data-gp="select">Select</button>
+      </div>
+    </div>
+  </div>
+  <div id="ui">
+    <h1>NEON GRID</h1>
+    <div class="panel" id="stats-panel">
+      <strong>Credits:</strong> <span id="credits">0</span><br>
+      <strong>Meds:</strong> <span id="meds">0</span><br>
+      <strong>Revives:</strong> <span id="revives">0</span>
+    </div>
+    <div class="panel">
+      <strong>Controls</strong><br>
+      Move: WASD or D‑Pad<br>
+      Actions: Buttons or keys<br>
+      <div id="movement-buttons">
+        <button data-move="up">▲</button>
+        <div id="movement-buttons-row">
+          <button data-move="left">◀</button>
+          <button data-move="down">▼</button>
+          <button data-move="right">▶</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel" id="action-buttons">
+      <button data-action="shop">Shop</button>
+      <button data-action="party">Party</button>
+      <button data-action="save">Save</button>
+      <button data-action="load">Load</button>
+      <button data-action="revive">Revive</button>
+      <button data-action="quit">Quit</button>
+    </div>
+    <div class="panel" id="message-box">
+      Booting Neon Grid…
+    </div>
+  </div>
+</div>  <div id="combat-screen">
+  <div id="combat-left">
+    <div id="combat-log"></div>
+    <div id="combat-buttons">
+      <button data-combat="attack">Attack</button>
+      <button data-combat="skill">Skill</button>
+      <button data-combat="meds">Meds</button>
+      <button data-combat="revive">Revive</button>
+      <button data-combat="run">Run</button>
+      <button data-combat="info">Enemy Info</button>
+    </div>
+  </div>
+  <div id="combat-right">
+    <div><strong>Turn Order</strong></div>
+    <div id="turn-order"></div>
+    <hr>
+    <div><strong>Party</strong></div>
+    <div id="party-status"></div>
+    <hr>
+    <div><strong>Enemies</strong></div>
+    <div id="enemy-status"></div>
+  </div>
+</div>  <div id="crt-overlay">
+  <div id="crt-window">
+    <div id="crt-scanlines"></div>
+    <div id="crt-title">TERMINAL</div>
+    <div id="crt-body"></div>
+    <div id="crt-options"></div>
+    <button id="crt-exit">EXIT</button>
+  </div>
+</div>  <script>
+
+// --- Neon Grid Intro ---
+(function showIntro(){
+  const introLines = [
+    "Welcome to NEON GRID…",
+    "A digital world of endless code and danger.",
+    "Form your party, face the rogue programs,",
+    "Unlock hidden allies, and fight for survival.",
+    "Prepare your party…"
+  ];
+
+  const msgBox = document.getElementById("message-box");
+  let i = 0;
+
+  function nextLine() {
+    if (i < introLines.length) {
+      msgBox.textContent = introLines[i];
+      i++;
+      setTimeout(nextLine, 1200); // 1.2 seconds per line
+    } else {
+      // After last line, keep it for 2 seconds then show normal message
+      setTimeout(() => {
+        msgBox.textContent = "Use WASD, buttons, or gamepad to explore the Neon Grid.";
+      }, 2000);
+    }
+  }
+
+  nextLine();
+})();
+
+// === CORE CONSTANTS ===
+const GRID_SIZE=15,CHUNK_SIZE=20;
+const TILE_EMPTY=".",TILE_NPC="N",TILE_ENEMY="E",TILE_BOSS="B",TILE_LYDIA="L";
+
+let world={playerX:0,playerY:0,chunks:{},steps:0};
+let credits=50;
+let inventory={meds:3,revives:1};
+let party=[],roster=[],bossFlags={overseer:false,gc:false,loop:false};
+let inCombat=false,currentEnemies=[],turnOrder=[],turnIndex=0,activeAlly=null;
+let lydiaUnlocked=false;
+
+// === DOM SHORTCUTS ===
+const gridEl=document.getElementById("grid");
+const msgEl=document.getElementById("message-box");
+const creditsEl=document.getElementById("credits");
+const medsEl=document.getElementById("meds");
+const revivesEl=document.getElementById("revives");
+const combatScreen=document.getElementById("combat-screen");
+const combatLog=document.getElementById("combat-log");
+const combatButtons=document.querySelectorAll("#combat-buttons button");
+const turnOrderEl=document.getElementById("turn-order");
+const partyStatusEl=document.getElementById("party-status");
+const enemyStatusEl=document.getElementById("enemy-status");
+const crtOverlay=document.getElementById("crt-overlay");
+const crtTitle=document.getElementById("crt-title");
+const crtBody=document.getElementById("crt-body");
+const crtOptions=document.getElementById("crt-options");
+const crtExit=document.getElementById("crt-exit");
+const gamepad=document.getElementById("gamepad");
+const gamepadToggle=document.getElementById("gamepad-toggle");
+
+// === UTIL ===
+function logMessage(t){msgEl.textContent=t;}
+function rand(n){return Math.floor(Math.random()*n);}
+
+// === WORLD GEN ===
+function randomTile(){
+  let r=Math.random()*1000;
+  if(r<1)return TILE_LYDIA;
+  if(r<20)return TILE_NPC;
+  if(r<80)return TILE_ENEMY;
+  if(r<85)return TILE_BOSS;
+  return TILE_EMPTY;
+}
+function getChunk(cx,cy){
+  let k=cx+","+cy;
+  if(!world.chunks[k]){
+    let c=[];
+    for(let y=0;y<CHUNK_SIZE;y++){
+      let row=[];
+      for(let x=0;x<CHUNK_SIZE;x++)row.push(randomTile());
+      c.push(row);
+    }
+    world.chunks[k]=c;
+  }
+  return world.chunks[k];
+}
+function tileAt(x,y){
+  let cx=Math.floor(x/CHUNK_SIZE),cy=Math.floor(y/CHUNK_SIZE);
+  let chunk=getChunk(cx,cy);
+  let tx=((x%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;
+  let ty=((y%CHUNK_SIZE)+CHUNK_SIZE)%CHUNK_SIZE;
+  return chunk[ty][tx];
+}
+function drawGrid(){
+  gridEl.innerHTML="";
+  let top=world.playerY-Math.floor(GRID_SIZE/2);
+  let left=world.playerX-Math.floor(GRID_SIZE/2);
+  for(let y=0;y<GRID_SIZE;y++){
+    for(let x=0;x<GRID_SIZE;x++){
+      let gx=left+x,gy=top+y;
+      let t=tileAt(gx,gy);
+      let d=document.createElement("div");
+      d.className="tile";
+      if(gx===world.playerX&&gy===world.playerY)d.classList.add("player");
+      else if(t===TILE_ENEMY)d.classList.add("enemy");
+      else if(t===TILE_NPC)d.classList.add("npc");
+      else if(t===TILE_BOSS)d.classList.add("boss");
+      else if(t===TILE_LYDIA)d.classList.add("lydia");
+      gridEl.appendChild(d);
+    }
+  }
+}
+
+// === PARTY / ROSTER ===
+function makeChar(name,cls){
+  let baseHP=cls==="Lydia"?60:40+rand(20);
+  return{
+    name,cls,
+    hp:baseHP,maxHp:baseHP,
+    meds:0,revives:0,
+    faint:false,
+    lydia:(cls==="Lydia")
+  };
+}
+function initParty(){
+  party=[
+    makeChar("Ruby Adept","Caster"),
+    makeChar("Array Hacker","Striker"),
+    makeChar("Loop Runner","Support")
+  ];
+  roster=[];
+}
+function updateStatsUI(){
+  creditsEl.textContent=credits;
+  medsEl.textContent=inventory.meds;
+  revivesEl.textContent=inventory.revives;
+}
+function hpBar(pct){
+  let outer=document.createElement("div");
+  outer.className="healthbar";
+  let inner=document.createElement("div");
+  inner.className="healthbar-fill";
+  inner.style.width=Math.max(0,Math.min(100,pct))+"%";
+  outer.appendChild(inner);
+  return outer;
+}
+function updateStatusPanels(){
+  partyStatusEl.innerHTML="";
+  party.forEach(ch=>{
+    let row=document.createElement("div");
+    row.textContent=`${ch.name} (${ch.cls}) HP ${ch.hp}/${ch.maxHp}`;
+    partyStatusEl.appendChild(row);
+    partyStatusEl.appendChild(hpBar(100*ch.hp/ch.maxHp));
+  });
+  enemyStatusEl.innerHTML="";
+  currentEnemies.forEach(e=>{
+    let row=document.createElement("div");
+    row.textContent=`${e.name} HP ${e.hp}/${e.maxHp}`;
+    enemyStatusEl.appendChild(row);
+    enemyStatusEl.appendChild(hpBar(100*e.hp/e.maxHp));
+  });
+}
+function updateTurnOrderUI(){
+  turnOrderEl.innerHTML="";
+  turnOrder.forEach((u,i)=>{
+    let d=document.createElement("div");
+    d.className="turn-entry"+(i===turnIndex?" turn-active":"");
+    d.textContent=u.side==="ally"?`▶ ${u.ref.name}`:`✖ ${u.ref.name}`;
+    turnOrderEl.appendChild(d);
+  });
+}
+
+// === ENEMIES ===
+function makeEnemy(name,hp){
+  return{name,hp,maxHp:hp};
+}
+function randomEnemy(){
+  let r=rand(3);
+  if(r===0)return makeEnemy("Glitch Drone",30+rand(10));
+  if(r===1)return makeEnemy("Null Wraith",40+rand(15));
+  return makeEnemy("Stack Phantom",50+rand(20));
+}
+function bossEnemy(){
+  if(!bossFlags.overseer){bossFlags.overseer=true;return makeEnemy("Overseer Zero",90);}
+  if(!bossFlags.gc){bossFlags.gc=true;return makeEnemy("Garbage Collector",110);}
+  if(!bossFlags.loop){bossFlags.loop=true;return makeEnemy("Loop Titan",130);}
+  return randomEnemy();
+}
+
+// === COMBAT ===
+function logCombat(t){
+  combatLog.innerHTML+=t+"<br>";
+  combatLog.scrollTop=combatLog.scrollHeight;
+}
+function startCombat(isBoss){
+  inCombat=true;
+  combatScreen.style.display="flex";
+  combatLog.innerHTML="";
+  currentEnemies=[];
+  let count=isBoss?1:1+rand(2);
+  for(let i=0;i<count;i++)currentEnemies.push(isBoss?bossEnemy():randomEnemy());
+  logCombat(isBoss?"A boss descends from the Neon Grid.":"Hostile code manifests from the static.");
+  buildTurnOrder();
+  updateStatusPanels();
+  updateTurnOrderUI();
+  nextTurn();
+}
+
+// === COMBAT TURN ORDER FIX ===
+function buildTurnOrder() {
+  let currentUnit = turnOrder[turnIndex]?.ref;
+  turnOrder = party
+    .filter(ch => !ch.faint)
+    .map(ch => ({ side: "ally", ref: ch }))
+    .concat(
+      currentEnemies
+        .filter(e => e.hp > 0)
+        .map(e => ({ side: "enemy", ref: e }))
+    );
+  turnIndex = turnOrder.findIndex(u => u.ref === currentUnit);
+  if (turnIndex < 0) turnIndex = 0;
+}
+
+function nextTurn() {
+  buildTurnOrder();
+  if (turnOrder.length === 0) { handleVictory(); return; }
+  if (party.every(ch => ch.faint)) { handlePartyWipe(); return; }
+  if (currentEnemies.every(e => e.hp <= 0)) { handleVictory(); return; }
+
+  let unit = turnOrder[turnIndex];
+  updateTurnOrderUI();
+
+  if (unit.side === "ally") {
+    activeAlly = unit.ref;
+    logCombat(`${activeAlly.name}'s turn.`);
+  } else {
+    activeAlly = null;
+    // Enemy turn
+    setTimeout(() => {
+      Act(unit.ref); // call the existing Act(e) function
+    }, 400); // small delay so the player sees the log
+  }
+}
+function Act(e){
+  let targets=party.filter(ch=>!ch.faint);
+  if(targets.length===0){handlePartyWipe();return;}
+  let t=targets[rand(targets.length)];
+  let dmg=8+rand(6);
+  t.hp=Math.max(0,t.hp-dmg);
+  if(t.hp===0){
+    if(t.lydia){
+      t.faint=true;
+      logCombat(`Lydia refuses to die. She collapses but her presence lingers.`);
+    }else{
+      t.faint=true;
+      logCombat(`${t.name} collapses!`);
+    }
+  }else{
+    logCombat(`${e.name} hits ${t.name} for ${dmg}.`);
+  }
+  updateStatusPanels();
+  turnIndex=(turnIndex+1)%turnOrder.length;
+  setTimeout(nextTurn,500);
+}
+function handleVictory(){
+  logCombat("The hostile code derezzes.");
+  let gain=10+rand(15);
+  credits+=gain;
+  updateStatsUI();
+  party.forEach(ch=>{
+    if(ch.faint){
+      ch.faint=false;
+      ch.hp=Math.floor(ch.maxHp/2);
+    }
+  });
+  updateStatusPanels();
+  setTimeout(()=>{combatScreen.style.display="none";inCombat=false;logMessage("The Grid hums quietly.");},800);
+}
+function handlePartyWipe(){
+  logCombat("Your party collapses. The Grid watches.");
+  setTimeout(()=>{
+    party.forEach(ch=>{
+      ch.faint=false;
+      ch.hp=Math.floor(ch.maxHp/2);
+    });
+    updateStatusPanels();
+    combatScreen.style.display="none";
+    inCombat=false;
+    logMessage("You awaken at the edge of the Neon Grid.");
+  },800);
+}
+function endCombat(ran){
+  if(ran)logCombat("You escape into the Neon static.");
+  handleVictory();
+}
+
+// === COMBAT ACTIONS ===
+function combatAttack(){
+  if(!activeAlly)return;
+  let alive=currentEnemies.filter(e=>e.hp>0);
+  if(!alive.length){handleVictory();return;}
+  let target=alive[0];
+  let dmg=12+rand(8);
+  target.hp=Math.max(0,target.hp-dmg);
+  logCombat(`${activeAlly.name} strikes ${target.name} for ${dmg}.`);
+  updateStatusPanels();
+  turnIndex=(turnIndex+1)%turnOrder.length;
+  nextTurn();
+}
+function combatSkill(){
+  if(!activeAlly)return;
+  let alive=currentEnemies.filter(e=>e.hp>0);
+  if(!alive.length){handleVictory();return;}
+  let target=alive[0];
+  let dmg=activeAlly.lydia?25+rand(10):15+rand(10);
+  target.hp=Math.max(0,target.hp-dmg);
+  logCombat(activeAlly.lydia?
+    `Lydia unleashes Fang Rend on ${target.name} for ${dmg}.`:
+    `${activeAlly.name} channels a class skill on ${target.name} for ${dmg}.`);
+  updateStatusPanels();
+  turnIndex=(turnIndex+1)%turnOrder.length;
+  nextTurn();
+}
+function combatMeds(){
+  if(!activeAlly)return;
+  if(inventory.meds<=0){logCombat("No Meds left.");return;}
+  inventory.meds--;updateStatsUI();
+  let heal=20+rand(10);
+  activeAlly.hp=Math.min(activeAlly.maxHp,activeAlly.hp+heal);
+  logCombat(`${activeAlly.name} uses Meds and restores ${heal} HP.`);
+  updateStatusPanels();
+  turnIndex=(turnIndex+1)%turnOrder.length;
+  nextTurn();
+}
+function combatRevive(){
+  if(!activeAlly)return;
+  if(inventory.revives<=0){logCombat("No Revive Kits left.");return;}
+  let target=party.find(ch=>ch.faint&&!ch.lydia);
+  if(!target){logCombat("No valid ally to revive.");return;}
+  inventory.revives--;updateStatsUI();
+  target.faint=false;
+  target.hp=Math.floor(target.maxHp/2);
+  logCombat(`${activeAlly.name} revives ${target.name}.`);
+  updateStatusPanels();
+  turnIndex=(turnIndex+1)%turnOrder.length;
+  nextTurn();
+}
+function combatRun(){
+  logCombat("You attempt to flee...");
+  if(Math.random()<0.6){endCombat(true);}
+  else{logCombat("The code grips you. You cannot escape.");turnIndex=(turnIndex+1)%turnOrder.length;nextTurn();}
+}
+function combatInfo(){
+  currentEnemies.forEach(e=>logCombat(`${e.name}: HP ${e.hp}/${e.maxHp}`));
+}
+
+// === CRT TERMINAL ===
+let crtCallback=null;
+function showCRT(title,body,options){
+  crtTitle.textContent=title;
+  crtBody.textContent=body;
+  crtOptions.innerHTML="";
+  options.forEach(opt=>{
+    let b=document.createElement("button");
+    b.textContent=opt.label;
+    b.onclick=()=>opt.onClick();
+    crtOptions.appendChild(b);
+  });
+  crtOverlay.style.display="flex";
+}
+function closeCRT(){
+  crtOverlay.style.display="none";
+}
+crtExit.onclick=closeCRT;
+
+// === SHOP / PARTY / SAVE ===
+function openShop(){
+  let body="=== NEON BAZAAR ===\nThe stalls flicker with code...\n\nCredits: "+credits;
+  let opts=[
+    {label:"Recruit Random (30)",onClick:()=>{if(credits<30){logMessage("Not enough credits.");return;}credits-=30;let c=makeChar("Recruited "+(roster.length+1),"Runner");roster.push(c);updateStatsUI();logMessage(c.name+" joins the roster.");}},
+    {label:"Buy Meds (10)",onClick:()=>{if(credits<10){logMessage("Not enough credits.");return;}credits-=10;inventory.meds++;updateStatsUI();logMessage("You buy Meds.");}},
+    {label:"Buy Revive Kit (25)",onClick:()=>{if(credits<25){logMessage("Not enough credits.");return;}credits-=25;inventory.revives++;updateStatsUI();logMessage("You buy a Revive Kit.");}}
+  ];
+  showCRT("NEON BAZAAR",body,opts);
+}
+function openParty(){
+  let body="=== PARTY CONSOLE ===\nActive party:\n";
+  party.forEach((ch,i)=>{body+=`${i+1}) ${ch.name} (${ch.cls}) HP ${ch.hp}/${ch.maxHp}\n`;});
+  body+="\nRoster:\n";
+  if(!roster.length)body+="(empty)\n";
+  else roster.forEach((ch,i)=>{body+=`${i+1}) ${ch.name} (${ch.cls})\n`;});
+  let opts=[];
+  if(roster.length&&party.length){
+    opts.push({label:"Swap first party with first roster",onClick:()=>{
+      let tmp=party[0];party[0]=roster[0];roster[0]=tmp;
+      logMessage("You rearrange the party.");closeCRT();
+    }});
+  }
+  showCRT("PARTY CONSOLE",body,opts);
+}
+function saveGame(){
+  let data={world,credits,inventory,party,roster,bossFlags,lydiaUnlocked};
+  localStorage.setItem("neon_grid_save",JSON.stringify(data));
+  showCRT("SAVE", "State written to local storage.\nThe Grid remembers you.",[]);
+}
+function loadGame(){
+  let raw=localStorage.getItem("neon_grid_save");
+  if(!raw){showCRT("LOAD","No save data found.",[]);return;}
+  try{
+    let d=JSON.parse(raw);
+    world=d.world;credits=d.credits;inventory=d.inventory;
+    party=d.party;roster=d.roster;bossFlags=d.bossFlags||bossFlags;
+    lydiaUnlocked=!!d.lydiaUnlocked;
+    updateStatsUI();drawGrid();
+    showCRT("LOAD","State restored.\nYou phase back into the Neon Grid.",[]);
+  }catch(e){
+    showCRT("LOAD","Corrupted save data.",[]);
+  }
+}
+
+// === MOVEMENT / ENCOUNTERS ===
+function move(dx,dy){
+  if(inCombat)return;
+  world.playerX+=dx;world.playerY+=dy;world.steps++;
+  let t=tileAt(world.playerX,world.playerY);
+  if(t===TILE_NPC){
+    logMessage("A holographic archivist whispers forgotten Ruby lore.");
+  }else if(t===TILE_ENEMY){
+    startCombat(false);
+  }else if(t===TILE_BOSS){
+    startCombat(true);
+  }else if(t===TILE_LYDIA){
+    triggerLydiaEncounter();
+  }else{
+    logMessage("You move through the Neon Grid.");
+  }
+  drawGrid();
+}
+function triggerLydiaEncounter(){
+  if(lydiaUnlocked){logMessage("You feel Lydia watching from the static.");return;}
+  let body="=== LIDIA SIGNAL ===\nThe Grid quiets. A soft howl cuts through the static.\nA presence steps out of the neon fog.\n\n\"You kept walking. I noticed.\"";
+  let opts=[{label:"Accept Lydia",onClick:()=>{
+    let l=makeChar("Lydia","Lydia");
+    l.lydia=true;
+    if(party.length<3)party.push(l);else roster.push(l);
+    lydiaUnlocked=true;
+    logMessage("Lydia joins you as Bio‑Fang Prime.");closeCRT();
+  }}];
+  showCRT("LIDIA",body,opts);
+}
+
+// === ACTION BUTTONS ===
+function doAction(a){
+  if(a==="shop")openShop();
+  else if(a==="party")openParty();
+  else if(a==="save")saveGame();
+  else if(a==="load")loadGame();
+  else if(a==="revive"){
+    if(inventory.revives<=0){logMessage("No Revive Kits.");return;}
+    let target=party.find(ch=>ch.faint&&!ch.lydia);
+    if(!target){logMessage("No ally to revive.");return;}
+    inventory.revives--;updateStatsUI();
+    target.faint=false;target.hp=Math.floor(target.maxHp/2);
+    logMessage("You revive "+target.name+".");
+  }else if(a==="quit"){
+    showCRT("QUIT","You step away from the Neon Grid.\n(Refresh page to truly quit.)",[]);
+  }
+}
+
+// === INPUT: KEYBOARD ===
+document.addEventListener("keydown",e=>{
+  if(inCombat){
+    if(e.key==="a")combatAttack();
+    else if(e.key==="s")combatSkill();
+    else if(e.key==="m")combatMeds();
+    else if(e.key==="r")combatRevive();
+    else if(e.key==="Escape")combatRun();
+    else if(e.key==="i")combatInfo();
+  }else{
+    if(e.key==="w"||e.key==="ArrowUp"){move(0,-1);konamiInput("up");}
+    else if(e.key==="s"||e.key==="ArrowDown"){move(0,1);konamiInput("down");}
+    else if(e.key==="a"||e.key==="ArrowLeft"){move(-1,0);konamiInput("left");}
+    else if(e.key==="d"||e.key==="ArrowRight"){move(1,0);konamiInput("right");}
+    else if(e.key==="j")doAction("shop");
+    else if(e.key==="p")doAction("party");
+    else if(e.key==="k")doAction("save");
+    else if(e.key==="l")doAction("load");
+    else if(e.key==="r")doAction("revive");
+    else if(e.key==="q")doAction("quit");
+    else if(e.key.toLowerCase()==="b")konamiInput("b");
+    else if(e.key.toLowerCase()==="a")konamiInput("a");
+  }
+});
+
+// === INPUT: UI BUTTONS ===
+document.querySelectorAll("[data-move]").forEach(b=>{
+  b.onclick=()=>{
+    let d=b.getAttribute("data-move");
+    if(d==="up"){move(0,-1);konamiInput("up");}
+    if(d==="down"){move(0,1);konamiInput("down");}
+    if(d==="left"){move(-1,0);konamiInput("left");}
+    if(d==="right"){move(1,0);konamiInput("right");}
+  };
+});
+document.querySelectorAll("[data-action]").forEach(b=>{
+  b.onclick=()=>doAction(b.getAttribute("data-action"));
+});
+combatButtons.forEach(b=>{
+  b.onclick=()=>{
+    let a=b.getAttribute("data-combat");
+    if(a==="attack")combatAttack();
+    else if(a==="skill")combatSkill();
+    else if(a==="meds")combatMeds();
+    else if(a==="revive")combatRevive();
+    else if(a==="run")combatRun();
+    else if(a==="info")combatInfo();
+  };
+});
+
+// === GAMEPAD ===
+let gamepadVisible=false;
+gamepadToggle.onclick=()=>{
+  gamepadVisible=!gamepadVisible;
+  gamepad.style.display=gamepadVisible?"block":"none";
+};
+document.querySelectorAll("#gamepad button").forEach(b=>{
+  b.onclick=()=>{
+    let gp=b.getAttribute("data-gp");
+    if(gp==="up"){move(0,-1);konamiInput("up");}
+    else if(gp==="down"){move(0,1);konamiInput("down");}
+    else if(gp==="left"){move(-1,0);konamiInput("left");}
+    else if(gp==="right"){move(1,0);konamiInput("right");}
+    else if(gp==="a"){
+      if(inCombat)combatAttack();
+      else konamiInput("a");
+    }else if(gp==="b"){
+      if(inCombat)combatSkill();
+      else konamiInput("b");
+    }else if(gp==="x"){
+      if(inCombat)combatMeds();
+      else doAction("shop");
+    }else if(gp==="y"){
+      if(inCombat)combatRevive();
+      else doAction("revive");
+    }else if(gp==="start"){
+      if(inCombat)combatInfo();
+      else doAction("party");
+    }else if(gp==="select"){
+      if(inCombat)combatRun();
+      else logMessage("Select pressed. The Grid flickers.");
+    }
+  };
+});
+
+// === KONAMI CODE → LIDIA UNLOCK ===
+const konamiSeq=["up","up","down","down","left","right","left","right","b","a"];
+let konamiIndex=0;
+function konamiInput(key){
+  if(konamiSeq[konamiIndex]===key){
+    konamiIndex++;
+    if(konamiIndex===konamiSeq.length){
+      konamiIndex=0;
+      if(!lydiaUnlocked){
+        let l=makeChar("Lydia","Lydia");
+        l.lydia=true;
+        if(party.length<3)party.push(l);else roster.push(l);
+        lydiaUnlocked=true;
+        logMessage("A soft howl cuts through the static... Lydia has answered your call.");
+      }else{
+        logMessage("The howl echoes. Lydia is already with you.");
+      }
+    }
+  }else{
+    konamiIndex=0;
+  }
+}
+
+// === INIT ===
+function init(){
+  initParty();
+  updateStatsUI();
+  drawGrid();
+  logMessage("Use WASD, buttons, or gamepad to explore the Neon Grid.");
+}
+init();
+</script>
+</body>
+</html>
+
+

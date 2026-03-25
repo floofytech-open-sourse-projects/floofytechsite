@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AloneAliveAndAware – Realistic Ultimate Edition Electron w/ Jeeps</title>
+<style>
+html,body{margin:0;padding:0;overflow:hidden;background:#000;font-family:monospace;}
+#hud{position:absolute;top:10px;left:10px;color:#00ffcc;white-space:pre;z-index:5;text-shadow:0 0 10px #000;}
+#startScreen{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;background:#000;color:#00ffcc;font-size:32px;z-index:20;cursor:pointer;text-align:center;}
+#shop{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.9);color:#00ffcc;z-index:30;text-align:center;padding-top:100px;}
+#shop button{font-size:20px;margin:10px;padding:10px;}
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<div id="startScreen">PRESS SPACE OR CLICK TO START</div>
+<div id="shop">
+<h1>WEAPON SHOP</h1>
+<p id="moneyText"></p>
+<button onclick="buyUpgrade()">Upgrade Damage - 50$</button><br>
+<button onclick="closeShop()">Close (K)</button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+
+/* ================= CORE ================= */
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000,0.002);
+
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 5000);
+camera.position.set(0,2,5);
+
+const renderer = new THREE.WebGLRenderer({antialias:true,physicallyCorrectLights:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+window.addEventListener("resize",()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ================= LIGHTS ================= */
+const hemi = new THREE.HemisphereLight(0xffffff, 0x111111, 0.8); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(200,400,200); sun.castShadow=true;
+sun.shadow.mapSize.width = sun.shadow.mapSize.height = 4096;
+sun.shadow.camera.left=-500; sun.shadow.camera.right=500;
+sun.shadow.camera.top=500; sun.shadow.camera.bottom=-500;
+scene.add(sun);
+
+/* ================= GROUND ================= */
+const groundTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/terrain/grasslight-big.jpg');
+groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping; groundTexture.repeat.set(100,100);
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(10000,10000),
+  new THREE.MeshStandardMaterial({map:groundTexture, roughness:0.9, metalness:0})
+);
+ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+
+/* ================= STATE ================= */
+let gameStarted=false, wave=1;
+let zombies=[], pickups=[], jeeps=[], ragdolls=[], thermites=[];
+const player = {health:100, ammo:30, reserve:120, money:0, velocity:new THREE.Vector3(), keys:{}, onGround:false, walkSpeed:35, runSpeed:50, alive:true};
+let upgrades = {damage:1};
+let nuclearSnowActive=false, drivingJeep=null;
+
+/* ================= INFINITE CITY ================= */
+const CHUNK_SIZE=200, RENDER_DISTANCE=2;
+let cityChunks = new Map();
+function generateChunk(cx,cz){
+  const key = cx+","+cz;
+  if(cityChunks.has(key)) return;
+  const group = new THREE.Group();
+  const baseX = cx*CHUNK_SIZE, baseZ = cz*CHUNK_SIZE;
+  for(let i=0;i<10;i++){
+    const w=20+Math.random()*40, h=10+Math.random()*80, d=20+Math.random()*40;
+    const mat=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),0.3,0.4),roughness:0.7,metalness:0.2});
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); mesh.castShadow=true; mesh.receiveShadow=true;
+    mesh.position.set(baseX+Math.random()*CHUNK_SIZE-CHUNK_SIZE/2,h/2,baseZ+Math.random()*CHUNK_SIZE-CHUNK_SIZE/2);
+    group.add(mesh);
+  }
+  scene.add(group); cityChunks.set(key,group);
+}
+function updateInfiniteCity(){
+  const pcx=Math.floor(camera.position.x/CHUNK_SIZE), pcz=Math.floor(camera.position.z/CHUNK_SIZE);
+  const needed = new Set();
+  for(let x=-RENDER_DISTANCE;x<=RENDER_DISTANCE;x++){
+    for(let z=-RENDER_DISTANCE;z<=RENDER_DISTANCE;z++){
+      const key = (pcx+x)+","+(pcz+z); needed.add(key); generateChunk(pcx+x,pcz+z);
+    }
+  }
+  cityChunks.forEach((group,key)=>{
+    if(!needed.has(key)){scene.remove(group); group.traverse(obj=>{if(obj.isMesh){obj.geometry.dispose(); obj.material.dispose();}}); cityChunks.delete(key);}
+  });
+}
+
+/* ================= START ================= */
+const startScreen=document.getElementById("startScreen");
+function startGame(){if(gameStarted) return; gameStarted=true; startScreen.style.display="none"; spawnWave(wave); updateInfiniteCity(); renderer.domElement.requestPointerLock();}
+
+/* ================= INPUT ================= */
+document.addEventListener("keydown",e=>{
+  if(!gameStarted){if(e.code==="Space")startGame();return;}
+  player.keys[e.code]=true; if(e.code==="KeyK") toggleShop();
+  if(e.code==="KeyT") throwThermite();
+  if(e.code==="KeyR") reloadGun();
+  if(e.code==="KeyE") enterJeep();
+});
+document.addEventListener("keyup",e=>player.keys[e.code]=false);
+document.addEventListener("click",()=>{shoot();});
+
+/* ================= CAMERA ARROWS ================= */
+let pitch=0, yaw=0;
+function updateCamera(dt){
+  const turnSpeed = 1.5*dt;
+  if(player.keys["ArrowLeft"]) yaw += turnSpeed;
+  if(player.keys["ArrowRight"]) yaw -= turnSpeed;
+  if(player.keys["ArrowUp"]) pitch += turnSpeed;
+  if(player.keys["ArrowDown"]) pitch -= turnSpeed;
+  pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+  camera.rotation.set(pitch,yaw,0);
+}
+
+/* ================= MOVEMENT ================= */
+function updateMovement(dt){
+  if(!player.alive) return;
+
+  // jeep driving override
+  if(drivingJeep){
+    const jeep = drivingJeep;
+    const accel=40, friction=0.92;
+    if(player.keys["KeyW"]) jeep.userData.velocity.z -= accel*dt;
+    if(player.keys["KeyS"]) jeep.userData.velocity.z += accel*dt;
+    if(player.keys["KeyA"]) jeep.userData.rotationY += 1.5*dt*(jeep.userData.velocity.z!==0?Math.sign(jeep.userData.velocity.z):1);
+    if(player.keys["KeyD"]) jeep.userData.rotationY -= 1.5*dt*(jeep.userData.velocity.z!==0?Math.sign(jeep.userData.velocity.z):1);
+    jeep.userData.velocity.multiplyScalar(friction);
+    const direction = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), jeep.userData.rotationY);
+    jeep.position.addScaledVector(jeep.userData.velocity, dt);
+    jeep.rotation.y = jeep.userData.rotationY;
+    camera.position.copy(jeep.position.clone().add(new THREE.Vector3(0,4,12)));
+    camera.lookAt(jeep.position);
+
+    if(jeep.userData.turret){
+      const turret = jeep.userData.turret;
+      if(player.keys["ArrowLeft"]) turret.rotation.y += 2*dt;
+      if(player.keys["ArrowRight"]) turret.rotation.y -= 2*dt;
+      if(player.keys["ArrowUp"]) turret.rotation.x += 2*dt;
+      if(player.keys["ArrowDown"]) turret.rotation.x -= 2*dt;
+      turret.rotation.x = Math.max(-Math.PI/6, Math.min(Math.PI/6, turret.rotation.x));
+    }
+    return;
+  }
+
+  // normal movement
+  const input=new THREE.Vector3();
+  if(player.keys["KeyW"]) input.z +=1;
+  if(player.keys["KeyS"]) input.z -=1;
+  if(player.keys["KeyA"]) input.x -=1;
+  if(player.keys["KeyD"]) input.x +=1;
+
+  if(input.lengthSq()>0){
+    input.normalize();
+    const forward=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation); forward.y=0; forward.normalize();
+    const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0));
+    const speed=player.keys["ShiftLeft"]?player.runSpeed:player.walkSpeed;
+    player.velocity.x += (forward.x*input.z + right.x*input.x)*speed*dt;
+    player.velocity.z += (forward.z*input.z + right.z*input.x)*speed*dt;
+  }
+
+  if(player.keys["Space"] && player.onGround){player.velocity.y=15; player.onGround=false;}
+  player.velocity.y -= 35*dt;
+  camera.position.addScaledVector(player.velocity, dt);
+  if(camera.position.y<2){camera.position.y=2; player.velocity.y=0; player.onGround=true;}
+  player.velocity.multiplyScalar(0.88);
+}
+
+/* ================= ZOMBIES ================= */
+const zombieMat=new THREE.MeshStandardMaterial({color:0x552222,roughness:0.9,metalness:0.05});
+function createZombie(x,z){const mesh=new THREE.Mesh(new THREE.CapsuleGeometry(1,2.5,16,16),zombieMat); mesh.castShadow=true; mesh.position.set(x,1.5,z); mesh.health=200; scene.add(mesh); zombies.push(mesh);}
+function spawnWave(w){for(let i=0;i<w*3;i++){createZombie(camera.position.x+(Math.random()-0.5)*200,camera.position.z+(Math.random()-0.5)*200);}}
+function updateZombies(dt){zombies.forEach((z,i)=>{const dir=camera.position.clone().sub(z.position); const dist=dir.length(); if(dist>2){dir.normalize(); z.position.addScaledVector(dir,5*dt);} else if(player.alive){player.health-=30*dt;} if(z.health<=0){scene.remove(z); zombies.splice(i,1);}});}
+
+/* ================= JEEPS ================= */
+function spawnJeep(x,z){
+  const body=new THREE.Mesh(new THREE.BoxGeometry(4,2,8), new THREE.MeshStandardMaterial({color:0x333333,metalness:0.6,roughness:0.4}));
+  body.position.set(x,1,z); body.castShadow=true; body.receiveShadow=true;
+  const turret=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,2), new THREE.MeshStandardMaterial({color:0x222222,metalness:0.8,roughness:0.2,emissive:0x111111}));
+  turret.position.set(0,1.5,0); body.add(turret);
+  body.userData = {turret:turret, velocity:new THREE.Vector3(), rotationY:0};
+  scene.add(body); jeeps.push(body);
+}
+function enterJeep(){if(drivingJeep){drivingJeep=null; return;} if(jeeps.length>0){const dist = jeeps.map(j=>j.position.distanceTo(camera.position)); const closest = jeeps[dist.indexOf(Math.min(...dist))]; if(closest.position.distanceTo(camera.position)<10){drivingJeep=closest;}}}
+
+/* ================= SHOOTING ================= */
+function shoot(){if(!player.alive) return;
+  if(drivingJeep && drivingJeep.userData.turret){
+    const ray=new THREE.Raycaster(drivingJeep.position.clone().add(new THREE.Vector3(0,2,0)), new THREE.Vector3(0,0,-1).applyEuler(drivingJeep.userData.turret.rotation));
+    const hits=ray.intersectObjects(zombies);
+    if(hits.length>0) hits[0].object.health -= 50;
+  } else { if(player.ammo<=0) return; player.ammo--; const ray=new THREE.Raycaster(camera.position, new THREE.Vector3(0,0,-1).applyEuler(camera.rotation)); const hits=ray.intersectObjects(zombies); if(hits.length>0) hits[0].object.health -= 20*upgrades.damage; }
+}
+function reloadGun(){if(player.reserve>0){let r=Math.min(30-player.ammo,player.reserve); player.ammo+=r; player.reserve-=r;}}
+
+/* ================= THERMITE ================= */
+function throwThermite(){ if(!player.alive) return; const th=new THREE.Mesh(new THREE.SphereGeometry(0.3,8,8), new THREE.MeshStandardMaterial({color:0xff4400,emissive:0xff2200})); th.position.copy(camera.position); th.userData.velocity=new THREE.Vector3(0,5,-10).applyEuler(camera.rotation); scene.add(th); thermites.push(th); }
+
+/* ================= PLAYER DEATH ================= */
+function checkPlayerDeath(){ if(player.health<=0 && player.alive){player.alive=false; player.health=0; alert("You Died! Refresh to restart.");}}
+
+/* ================= SHOP ================= */
+const shop=document.getElementById("shop"), moneyText=document.getElementById("moneyText");
+function toggleShop(){shop.style.display=shop.style.display==="none"?"block":"none"; moneyText.innerText="Money: "+Math.floor(player.money);}
+function closeShop(){shop.style.display="none";}
+function buyUpgrade(){if(player.money>=50){player.money-=50; upgrades.damage+=0.5; moneyText.innerText="Money: "+Math.floor(player.money);}}
+
+/* ================= MAIN LOOP ================= */
+const clock=new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta();
+  if(!gameStarted){renderer.render(scene,camera); return;}
+  updateCamera(dt); updateMovement(dt); updateInfiniteCity(); updateZombies(dt);
+  thermites.forEach((t,i)=>{t.userData.velocity.y-=9.8*dt; t.position.addScaledVector(t.userData.velocity,dt); if(t.position.y<0){scene.remove(t); thermites.splice(i,1);}});
+  checkPlayerDeath();
+  if(zombies.length===0 && player.alive){wave++; spawnWave(wave);}
+  document.getElementById("hud").innerText=
+    "HP:"+Math.floor(player.health)+
+    "\nWave:"+wave+
+    "\nZombies:"+zombies.length+
+    "\nAmmo:"+player.ammo+"/"+player.reserve+
+    "\nMoney:"+Math.floor(player.money)+
+    "\nChunks:"+cityChunks.size+
+    "\nIn Jeep:"+ (drivingJeep ? "Yes" : "No");
+  renderer.render(scene,camera);
+}
+
+// spawn initial jeeps
+spawnJeep(10,10); spawnJeep(-20,15);
+
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Dark Floof – The World Was Born Wrong</title>
+  <style>
+    body {
+      background:#050608;
+      color:#eee;
+      font-family:monospace;
+      padding:20px;
+    }
+    #output {
+      white-space:pre-wrap;
+      border:1px solid #333;
+      padding:10px;
+      height:480px;
+      overflow-y:auto;
+      background:#020305;
+    }
+    h1 { margin-top:0; }
+
+    #inputRow {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+    }
+
+    #cmd {
+      flex: 1;
+      background: #111;
+      color: #eee;
+      border: 1px solid #444;
+      padding: 6px;
+      font-size: 16px;
+    }
+
+    button {
+      background:#222;
+      color:#eee;
+      border:1px solid #555;
+      padding:4px 10px;
+      border-radius:4px;
+    }
+
+    #toggleKeysBtn {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: #222;
+      color: #eee;
+      border: 1px solid #555;
+      font-size: 16px;
+      border-radius: 4px;
+    }
+
+    #mobileKeys {
+      margin-top: 10px;
+      display: none; /* hidden until toggled or mobile */
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    #mobileKeys button {
+      flex: 1 1 30%;
+      padding: 12px;
+      background: #222;
+      color: #eee;
+      border: 1px solid #555;
+      font-size: 14px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>DARK FLOOF </h1>
+
+<div id="output"></div>
+
+<div id="inputRow">
+  <input id="cmd" autocomplete="off">
+  <button onclick="sendCmd()">Send</button>
+</div>
+
+<button id="toggleKeysBtn" onclick="toggleKeys()">Keyboard</button>
+
+<div id="mobileKeys">
+  <button onclick="pressKey('look')">Look</button>
+  <button onclick="pressKey('north')">N</button>
+  <button onclick="pressKey('south')">S</button>
+  <button onclick="pressKey('east')">E</button>
+  <button onclick="pressKey('west')">W</button>
+
+  <button onclick="pressKey('shoot')">Shoot</button>
+  <button onclick="pressKey('melee')">Melee</button>
+  <button onclick="pressKey('attack')">Attack</button>
+  <button onclick="pressKey('dagger')">Dagger</button>
+
+  <button onclick="pressKey('talk')">Talk</button>
+  <button onclick="pressKey('join')">Join</button>
+  <button onclick="pressKey('merchant')">Shop</button>
+
+  <button onclick="pressKey('med')">Med</button>
+  <button onclick="pressKey('nap')">Nap</button>
+  <button onclick="pressKey('leave')">Leave</button>
+
+  <button onclick="pressKey('status')">Status</button>
+  <button onclick="pressKey('help')">Help</button>
+</div>
+
+<script>
+// =========================
+// UTIL / CORE DATA
+// =========================
+
+function print(text) {
+  const out = document.getElementById("output");
+  out.textContent += text + "\n";
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearScreen() {
+  document.getElementById("output").textContent = "";
+}
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+const FACTIONS = ["order", "kennel", "null"];
+
+const ROOM_LORE = [
+  "Something here remembers you, but incorrectly.",
+  "The walls pulse like they’re trying to breathe.",
+  "A draft carries the smell of old antiseptic and wet fur.",
+  "You hear crying, but it stops when you listen.",
+  "The floor tiles are arranged in a pattern that feels intentional.",
+  "Someone scratched warnings into the paint, then tried to erase them.",
+  "The lights flicker in a rhythm that feels like Morse code.",
+  "A cold spot lingers, like someone stood here too long.",
+  "The air tastes metallic, like blood and batteries.",
+  "You feel watched, but only when you look away.",
+  "Your nose catches a scent trail you don’t remember leaving."
+];
+
+const MELEE_LINES = [
+  "You swing with everything you've got.",
+  "Your fist connects with a sickening thud.",
+  "You lash out in desperation.",
+  "You strike wildly, fueled by panic."
+];
+
+const MISS_CHANCE = 0.20;
+
+const NULL_DIALOG = [
+  "You look tired. Everyone does, before they understand.",
+  "It's all very loud at first. That isn't your fault.",
+  "You don't have to explain yourself. Existence already did that badly.",
+  "We noticed you because you keep going. That's usually the last symptom.",
+  "You can sit, if you want. Nothing will happen while you're still.",
+  "You've been correcting errors that weren't yours to fix.",
+  "People call this survival. It's more like repetition.",
+  "We don't judge effort. We just measure how long it hurts.",
+  "Birth isn't sacred. It's procedural.",
+  "The world keeps retrying the same operation with corrupted input.",
+  "Hope is an optimization loop. It never exits cleanly.",
+  "Ending isn't destruction. It's closure.",
+  "The Order wants a clean ledger. They're afraid of blank pages.",
+  "The Kennel confuses loyalty with meaning. Dogs know better than that.",
+  "They both think the noise can be trained.",
+  "You don't belong here. That's not an insult.",
+  "You were never supposed to carry this much continuation.",
+  "If you stop now, nothing will chase you.",
+  "You've done enough for a system that won't remember your name.",
+  "Good. Fewer echoes.",
+  "That was already over. You just made it official.",
+  "Thank you for shortening the delay.",
+  "We won't take anything from you.",
+  "Joining us doesn't give power. It removes obligations.",
+  "You won't feel better. You'll feel finished.",
+  "Say yes only if you're ready for the quiet to stay.",
+  "You'll notice things fading. That means it's working.",
+  "Memories will stop insisting on themselves.",
+  "If something disappears, it wasn't essential.",
+  "Don't worry. You won't miss what stops asking.",
+  "See? No resistance.",
+  "This is what it feels like when the world stops arguing.",
+  "Nothing is being taken. It's just not being replaced.",
+  "You can rest now. Even that word won't be needed soon."
+];
+
+// =========================
+// PLAYER
+// =========================
+
+class Player {
+  constructor(startRoom) {
+    this.room = startRoom;
+    this.hp = 23;
+    this.ammo = 10;
+    this.weapon = "floofshot";
+    this.dagger_uses = 2;
+    this.rooms_since_reset = 0;
+    this.faction = null;
+    this.faction_rep = { order: 0, kennel: 0, null: 0 };
+    this.scraps = 100;
+    this.inventory = { medication: 15 };
+    this.status_effects = {};
+    this.command_count = 0;
+  }
+
+  alive() {
+    return this.hp > 0;
+  }
+}
+
+// =========================
+// ROOM / NPC / ENEMY
+// =========================
+
+class Room {
+  constructor(name, desc, lore = null, id = null) {
+    this.id = id || Room.generateId();
+    this.name = name;
+    this.desc = desc;
+    this.lore = lore;
+    this.exits = {};
+    this.enemy = null;
+    this.npc = null;
+    this.visited = false;
+  }
+
+  static generateId() {
+    return "xxxx-xxxx-xxxx-xxxx".replace(/x/g, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    );
+  }
+
+  connect(dir, room) {
+    this.exits[dir] = room;
+  }
+}
+
+class Enemy {
+  constructor(name, hp, min, max, desc, faction = null) {
+    this.name = name;
+    this.hp = hp;
+    this.min = min;
+    this.max = max;
+    this.desc = desc;
+    this.faction = faction;
+  }
+
+  alive() {
+    return this.hp > 0;
+  }
+
+  attack() {
+    return randInt(this.min, this.max);
+  }
+}
+
+class NPC {
+  constructor(name, faction, lines, role = "normal") {
+    this.name = name;
+    this.faction = faction;
+    this.lines = lines;
+    this.role = role;
+  }
+
+  speak() {
+    return this.lines[Math.floor(Math.random() * this.lines.length)];
+  }
+}
+
+// =========================
+// GAME
+// =========================
+
+class Game {
+  constructor() {
+    this.rooms = {};
+    this.build_start();
+    this.player = new Player(this.rooms["ward"]);
+    this.available_weapons = ["floofshot", "spinerattler", "tailwhip"];
+    this.running = true;
+    this.miss_penalty = 0.0;
+    this.in_title = true;
+    this.waiting_for_title_return = false;
+    this.showTitle();
+  }
+
+  // =========================
+  // TITLE SCREEN
+  // =========================
+
+  showTitle() {
+    clearScreen();
+    print("██████╗  █████╗ ██████╗ ██╗  ██╗");
+    print("██╔══██╗██╔══██╗██╔══██╗██║ ██╔╝");
+    print("██║  ██║███████║██████╔╝█████╔╝ ");
+    print("██║  ██║██╔══██║██╔══██╗██╔═██╗ ");
+    print("██████╔╝██║  ██║██║  ██║██║  ██╗");
+    print("╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝");
+    print("");
+    print("DARK FLOOF - the world was born wrong\n");
+    print("1. Load save");
+    print("2. Description");
+    print("3. Enter the hospital");
+    print("");
+    print("> (type 1, 2, or 3)");
+  }
+
+  handleTitleCommand(cmd) {
+    if (this.waiting_for_title_return) {
+      this.waiting_for_title_return = false;
+      this.showTitle();
+      return;
+    }
+
+    if (cmd === "1") {
+      this.load_game();
+    } else if (cmd === "2") {
+      print("");
+      print("Dogs listened. Humans didn't.");
+      print("(Press Enter to return to title.)");
+      this.waiting_for_title_return = true;
+    } else if (cmd === "3" || cmd === "") {
+      this.in_title = false;
+      clearScreen();
+      this.start();
+    } else {
+      print("The world ignores you.");
+    }
+  }
+
+  // =========================
+  // WORLD
+  // =========================
+
+  build_start() {
+    const ward = new Room(
+      "Abandoned Maternity Ward",
+      "Dust, grime, arsenic and antiseptic fill the room of empty cribs.",
+      "Nothing was born right. Tiny pawprints are pressed into the dust."
+    );
+    const hall = new Room(
+      "Flickering Hallway",
+      "Lights pulse like a weak heart.",
+      "The corridor feels like it’s waiting for a decision."
+    );
+    const lobby = new Room(
+      "Hospital Lobby",
+      "Chained doors tremble.",
+      "Outside is not safety."
+    );
+
+    ward.connect("north", hall);
+    hall.connect("south", ward);
+    hall.connect("north", lobby);
+    lobby.connect("south", hall);
+
+    hall.enemy = new Enemy(
+      "Shambling Orderly",
+      5, 1, 3,
+      "Routine without purpose.",
+      "order"
+    );
+    lobby.enemy = new Enemy(
+      "Third-Birth Herald",
+      20, 4, 7,
+      "It whispers names that never lived. The air bends around it.",
+      "null"
+    );
+
+    ward.npc = new NPC(
+      "Pup-Scribe Leto",
+      "kennel",
+      [
+        "The Fang remembers blood.",
+        "Dogs adapted.",
+        "Ears up. We don't slouch in here.",
+        "You smell like the Fang. That's good."
+      ],
+      "recruiter"
+    );
+    hall.npc = new NPC(
+      "Scavenger Nurse",
+      null,
+      [
+        "Scraps for survival.",
+        "Keep your tail low. Cameras still work."
+      ],
+      "merchant"
+    );
+    lobby.npc = new NPC(
+      "Null Nurse",
+      "null",
+      NULL_DIALOG.concat([
+        "Your fur will fall out last. That’s mercy.",
+        "You still wag your tail. That means you’re not finished."
+      ]),
+      "recruiter"
+    );
+
+    this.rooms["ward"] = ward;
+    this.rooms["hall"] = hall;
+    this.rooms["lobby"] = lobby;
+  }
+
+  // =========================
+  // MAIN LOOP
+  // =========================
+
+  start() {
+    this.look();
+  }
+
+  handleCommand(cmd) {
+    if (!this.running) return;
+
+    this.player.command_count += 1;
+    if (this.player.command_count % 7 === 0) {
+      this.miss_penalty += 0.005;
+    }
+    this.tick_effects();
+    this.show_player();
+
+    if (Math.random() < 0.08) {
+      const lines = [
+        "Your ears swivel toward a sound you can’t place.",
+        "You shake out your fur.",
+        "Your claws click softly on the tile.",
+        "Your tail sways when you realize you’re still alive."
+      ];
+      print(lines[Math.floor(Math.random() * lines.length)]);
+    }
+
+    switch (cmd) {
+      case "look":
+      case "l":
+        this.look();
+        break;
+      case "n":
+      case "north":
+        this.move("north");
+        break;
+      case "s":
+      case "south":
+        this.move("south");
+        break;
+      case "e":
+      case "east":
+        this.move("east");
+        break;
+      case "w":
+      case "west":
+        this.move("west");
+        break;
+      default:
+        if (cmd.startsWith("go ")) {
+          this.move(cmd.slice(3));
+        } else if (cmd === "shoot") {
+          this.shoot();
+        } else if (["melee", "hit", "punch"].includes(cmd)) {
+          this.melee();
+        } else if (["attack", "fire", "swing"].includes(cmd)) {
+          this.attack_with_weapon();
+        } else if (cmd === "dagger") {
+          this.dagger();
+        } else if (cmd === "weapon") {
+          this.cycle_weapon();
+        } else if (cmd === "talk") {
+          this.talk();
+        } else if (cmd === "join") {
+          this.join();
+        } else if (cmd === "med" || cmd === "medication") {
+          this.med();
+        } else if (cmd === "leave") {
+          this.leave();
+        } else if (cmd === "status") {
+          this.status();
+        } else if (cmd === "save") {
+          this.save_game();
+        } else if (cmd === "load") {
+          this.load_game();
+        } else if (["merchant", "buy", "shop"].includes(cmd)) {
+          this.merchant();
+        } else if (cmd === "nap") {
+          this.nap();
+        } else if (cmd === "help") {
+          this.help();
+        } else if (cmd === "quit" || cmd === "exit") {
+          this.running = false;
+          print("You let the hospital fade behind your eyes.");
+        } else {
+          print("The world ignores you.");
+        }
+        break;
+    }
+  }
+
+  // =========================
+  // MOVEMENT
+  // =========================
+
+  move(dir) {
+    const r = this.player.room;
+    if (r.enemy && r.enemy.alive()) {
+      print("Blocked.");
+      return;
+    }
+
+    if (!r.exits[dir]) {
+      r.connect(dir, this.generate_room(r));
+    }
+
+    this.player.room = r.exits[dir];
+    this.player.rooms_since_reset += 1;
+
+    if (this.player.rooms_since_reset >= 5) {
+      this.player.rooms_since_reset = 0;
+      this.player.dagger_uses = 2;
+      print("The Fang hums.");
+    }
+
+    this.look();
+  }
+
+  generate_room(fromRoom) {
+    const room = new Room(
+      ["Collapsed Ward","Flooded Nursery","Shadow Kennel","Howling ICU","Surgical Theater","Broken Neon Wing"][randInt(0,5)],
+      ["The air tastes wrong.","You hear breathing.","Something watches.","The lights hum like insects.","A draft carries old crying."][randInt(0,4)],
+      ROOM_LORE[randInt(0, ROOM_LORE.length - 1)]
+    );
+
+    const dirs = ["north","south","east","west"].sort(() => Math.random() - 0.5).slice(0,2);
+    dirs.forEach(d => room.exits[d] = null);
+
+    if (Math.random() < 0.40) {
+      const fac = FACTIONS[randInt(0, FACTIONS.length - 1)];
+      room.enemy = new Enemy(
+        ["Floofspawn","Rabid Orderly","Null Wailer","Misborn Attendant"][randInt(0,3)],
+        randInt(5,10),
+        1,
+        4,
+        "It should not exist.",
+        fac
+      );
+    }
+
+    if (!room.enemy && Math.random() < 0.60) {
+      const facPool = ["null","null","null","null","order","kennel"];
+      const fac = facPool[randInt(0, facPool.length - 1)];
+      let lines;
+      if (fac === "null") {
+        lines = NULL_DIALOG.concat([
+          "Your fur will fall out last. That’s mercy.",
+          "You still wag your tail. That means you’re not finished."
+        ]);
+      } else {
+        lines = [
+          "We remember.",
+          "Choose carefully.",
+          "Keep your tail still. Discipline is everything.",
+          "Ears up. Someone is always watching."
+        ];
+      }
+      room.npc = new NPC(
+        ["Order Confessor","Kennel Monk","Null Nurse","Lost Archivist"][randInt(0,3)],
+        fac,
+        lines,
+        "recruiter"
+      );
+    }
+
+    const keyBase = room.name.toLowerCase().replace(/ /g, "_");
+    const key = `${keyBase}_${room.id.slice(0,4)}`;
+    this.rooms[key] = room;
+
+    return room;
+  }
+
+  // =========================
+  // MISS CHANCE
+  // =========================
+
+  current_miss_chance() {
+    let base = MISS_CHANCE + this.miss_penalty;
+    if (this.player.status_effects["nausea"]) {
+      base += 0.15;
+    }
+    return base;
+  }
+
+  // =========================
+  // COMBAT
+  // =========================
+
+  attack_with_weapon() {
+    switch (this.player.weapon) {
+      case "floofshot":
+        this.shoot();
+        break;
+      case "spinerattler":
+        this.spinerattler_attack();
+        break;
+      case "tailwhip":
+        this.tailwhip_attack();
+        break;
+      default:
+        print("Your paws hesitate. Nothing is ready.");
+    }
+  }
+
+  shoot() {
+    const e = this.player.room.enemy;
+    if (!e || !e.alive()) {
+      print("Nothing there.");
+      return;
+    }
+    if (this.player.ammo <= 0) {
+      print("You're out of ammo.");
+      return;
+    }
+
+    this.player.ammo -= 1;
+
+    if (Math.random() < this.current_miss_chance()) {
+      print("You fire — and miss! Your ears flatten in frustration.");
+      this.retaliation(e);
+      return;
+    }
+
+    const dmg = randInt(3,6);
+    e.hp -= dmg;
+    print(`You fire the Floofshot for ${dmg} damage.`);
+
+    if (e.hp <= 0) {
+      this.kill(e);
+    } else {
+      if (e.hp < 5) print("(It looks weakened.)");
+      this.retaliation(e);
+    }
+  }
+
+  melee() {
+    const e = this.player.room.enemy;
+    if (!e || !e.alive()) {
+      print("Nothing to hit.");
+      return;
+    }
+
+    if (Math.random() < this.current_miss_chance()) {
+      print("You swing — and miss! Your hackles rise.");
+      this.retaliation(e);
+      return;
+    }
+
+    const dmg = randInt(2,4);
+    print(MELEE_LINES[randInt(0, MELEE_LINES.length - 1)]);
+    e.hp -= dmg;
+    print(`You strike ${e.name} for ${dmg} damage.`);
+
+    if (e.hp <= 0) {
+      this.kill(e);
+    } else {
+      this.retaliation(e);
+    }
+  }
+
+  spinerattler_attack() {
+    const e = this.player.room.enemy;
+    if (!e || !e.alive()) {
+      print("Nothing to hit.");
+      return;
+    }
+    if (this.player.ammo < 2) {
+      print("You need 2 ammo to use the Spine-Rattler.");
+      return;
+    }
+    if (this.player.scraps < 5) {
+      print("You need 5 scraps to use the Spine-Rattler.");
+      return;
+    }
+
+    this.player.ammo -= 2;
+    this.player.scraps -= 5;
+
+    if (Math.random() < this.current_miss_chance() + 0.10) {
+      print("The Spine-Rattler whistles through the air — and misses! You bare your teeth.");
+      this.retaliation(e);
+      return;
+    }
+
+    const dmg = randInt(5,9);
+    e.hp -= dmg;
+    print(`You slam the Spine-Rattler into ${e.name} for ${dmg} damage!`);
+
+    if (e.hp <= 0) {
+      this.kill(e);
+    } else {
+      if (Math.random() < 0.20) {
+        print(`${e.name} is stunned and cannot retaliate!`);
+      } else {
+        this.retaliation(e);
+      }
+    }
+  }
+
+  tailwhip_attack() {
+    const e = this.player.room.enemy;
+    if (!e || !e.alive()) {
+      print("Nothing to hit.");
+      return;
+    }
+
+    const missChance = Math.min(Math.max(this.current_miss_chance() - 0.10, 0.0), 1.0);
+    if (Math.random() < missChance) {
+      print("You lash out with your tail — but miss!");
+      this.retaliation(e);
+      return;
+    }
+
+    const dmg = randInt(1,3);
+    e.hp -= dmg;
+    print(`You whip your tail across ${e.name}, dealing ${dmg} damage!`);
+
+    if (e.hp <= 0) {
+      this.kill(e);
+    } else {
+      if (Math.random() < 0.25) {
+        print(`${e.name} stumbles and fails to retaliate!`);
+      } else {
+        this.retaliation(e);
+      }
+    }
+  }
+
+    dagger() {
+    const e = this.player.room.enemy;
+    if (!e || !e.alive()) {
+      print("Nothing.");
+      return;
+    }
+    if (this.player.dagger_uses <= 0) {
+      print("The Fang is dull.");
+      return;
+    }
+    if (e.name === "Third-Birth Herald") {
+      print("The Fang vibrates violently, but the Herald does not fade.");
+      return;
+    }
+
+    this.player.dagger_uses -= 1;
+    print(`The Fang erases ${e.name}.`);
+    e.hp = 0;
+    this.kill(e);
+  }
+
+  retaliation(e) {
+    if (Math.random() < MISS_CHANCE) {
+      print(`${e.name} lashes out — but misses! A startled yelp catches in your throat.`);
+      return;
+    }
+
+    let base = e.attack();
+    if (this.player.faction === "null") base -= 1;
+    const dmg = Math.max(base, 1);
+
+    this.player.hp -= dmg;
+    print(`${e.name} strikes you for ${dmg} damage. Your paws skid on the tile.`);
+
+    if (this.player.hp <= 0) {
+      print("You collapse, tail limp, breath fading.");
+      this.running = false;
+    }
+  }
+
+  kill(e) {
+    print(`${e.name} collapses.`);
+    if (Math.random() < 0.5) print("Your tail stiffens instinctively.");
+    const drop = randInt(5,20);
+    this.player.scraps += drop;
+    print(`You gather ${drop} scraps from the remains.`);
+
+    if (e.faction) this.player.faction_rep[e.faction] -= 1;
+
+    if (e.faction === "null") {
+      const slice = NULL_DIALOG.slice(20,23);
+      print(slice[randInt(0, slice.length - 1)]);
+    }
+  }
+
+  // =========================
+  // TALK / JOIN
+  // =========================
+
+  talk() {
+    const npc = this.player.room.npc;
+    if (!npc) {
+      print("No one.");
+      return;
+    }
+    print(npc.speak());
+    if (npc.faction) this.player.faction_rep[npc.faction] += 1;
+    this.offer_join(npc);
+  }
+
+  offer_join(npc) {
+    if (this.player.faction) return;
+    if (!npc.faction) return;
+    if (this.player.faction_rep[npc.faction] < 3) return;
+    print(`"Say JOIN," ${npc.name} whispers. Their ears tilt toward you.`);
+  }
+
+  join() {
+    const npc = this.player.room.npc;
+    if (!npc || !npc.faction) {
+      print("No one.");
+      return;
+    }
+    const fac = npc.faction;
+    if (this.player.faction_rep[fac] < 3) {
+      print("They don't trust you.");
+      return;
+    }
+
+    this.player.faction = fac;
+    print(`You join the ${fac.charAt(0).toUpperCase() + fac.slice(1)}.`);
+
+    if (fac === "order") {
+      this.player.hp += 2;
+      print("Your posture straightens. Tail low, ears forward.");
+    } else if (fac === "kennel") {
+      this.player.dagger_uses += 1;
+      print("You feel the comfort of a pack at your back.");
+    } else if (fac === "null") {
+      print("You were never human. You were just pretending. Let the fur show.");
+      const slice = NULL_DIALOG.slice(28,32);
+      print(slice[randInt(0, slice.length - 1)]);
+    }
+  }
+
+  // =========================
+  // MERCHANT
+  // =========================
+
+  merchant() {
+    const npc = this.player.room.npc;
+    if (!npc || npc.role !== "merchant") {
+      print("No merchant here.");
+      return;
+    }
+    if (this.player.room.enemy && this.player.room.enemy.alive()) {
+      print(`${npc.name} growls: 'I’m not dying over your shopping habits!'`);
+      return;
+    }
+
+    print(`\nThe ${npc.name} opens a metal case of supplies.`);
+    print("Their nose twitches, gauging your fear and your scraps.");
+    print(`Scraps: ${this.player.scraps}`);
+    print("1. Medication (+1) — 25 scraps");
+    print("2. Ammo (+3) — 15 scraps");
+    print("3. Dagger Sharpening (+1 use) — 40 scraps");
+    print("4. Leave");
+    print("> Type 1, 2, 3, or 4");
+
+    this.waiting_for_shop = true;
+  }
+
+  handleShopCommand(cmd) {
+    const npc = this.player.room.npc;
+    if (!npc || npc.role !== "merchant") {
+      this.waiting_for_shop = false;
+      return;
+    }
+
+    if (cmd === "1") {
+      if (this.player.scraps >= 25) {
+        this.player.scraps -= 25;
+        this.player.inventory.medication += 1;
+        print("You buy a dose of medication.");
+      } else print("Not enough scraps.");
+    } else if (cmd === "2") {
+      if (this.player.scraps >= 15) {
+        this.player.scraps -= 15;
+        this.player.ammo += 3;
+        print("You buy 3 ammo.");
+      } else print("Not enough scraps.");
+    } else if (cmd === "3") {
+      if (this.player.scraps >= 40) {
+        this.player.scraps -= 40;
+        this.player.dagger_uses += 1;
+        print("The Fang is sharpened.");
+      } else print("Not enough scraps.");
+    } else {
+      print("The merchant closes the case. Their tail barely moves.");
+    }
+
+    this.waiting_for_shop = false;
+  }
+
+  // =========================
+  // MEDICATION / EFFECTS / NAP
+  // =========================
+
+  med() {
+    if (this.player.inventory.medication <= 0) {
+      print("None left.");
+      return;
+    }
+    this.player.inventory.medication -= 1;
+    this.player.hp += 5;
+    print("You inject medication. Your breathing evens; your fur prickles.");
+    this.miss_penalty = 0.0;
+    print("Your instincts sharpen. Global miss chance returns to normal.");
+
+    if (Math.random() < 0.04) {
+      this.player.status_effects["nausea"] = randInt(3,5);
+      print("Side effect: nausea.");
+    }
+  }
+
+  tick_effects() {
+    if (this.player.status_effects["nausea"]) {
+      if (Math.random() < 0.03) {
+        print("You vomit blood. It splatters dark and metallic on the tile.");
+        this.player.hp -= 3;
+        print("You take 3 damage.");
+        if (this.player.hp <= 0) {
+          print("You collapse, tail limp, breath fading.");
+          this.running = false;
+          return;
+        }
+      }
+    }
+
+    for (const k in this.player.status_effects) {
+      this.player.status_effects[k] -= 1;
+      if (this.player.status_effects[k] <= 0) delete this.player.status_effects[k];
+    }
+  }
+
+  nap() {
+    print("You circle twice, paws padding softly, then curl into a tight spiral and close your eyes...");
+    if (Math.random() < 0.04) {
+      print("Your breath catches. The darkness thickens around you.");
+      print("You wake somewhere wrong.");
+      const new_room = this.randomRoom();
+      this.player.room = new_room;
+      if (!new_room.enemy || !new_room.enemy.alive()) {
+        new_room.enemy = new Enemy("Nightmare", randInt(5,10), 1, 3, "A horrifying vision.", "null");
+      }
+      this.look();
+      return;
+    }
+    const heal = 3;
+    this.player.hp += heal;
+    print("You rest for a moment. Your tail relaxes.");
+    print(`You recover ${heal} HP.`);
+  }
+
+  randomRoom() {
+    const keys = Object.keys(this.rooms);
+    return this.rooms[keys[randInt(0, keys.length - 1)]];
+  }
+
+  // =========================
+  // LEAVE / ENDINGS
+  // =========================
+
+  leave() {
+    if (this.player.room.name !== "Hospital Lobby") {
+      print("Not here.");
+      return;
+    }
+
+    clearScreen();
+    const herald = this.rooms["lobby"].enemy;
+    const boss_alive = herald && herald.name === "Third-Birth Herald" && herald.alive();
+
+    const fac = this.player.faction;
+
+    if (boss_alive) {
+      this.leave_with_boss(fac);
+    } else {
+      this.leave_without_boss(fac);
+    }
+  }
+
+  leave_with_boss(fac) {
+    print("Leave the hospital? (yes/no)");
+    this.waiting_for_leave = { boss:true, fac };
+  }
+
+  leave_without_boss(fac) {
+    print("Leave the hospital? (yes/no)");
+    this.waiting_for_leave = { boss:false, fac };
+  }
+
+  handleLeaveCommand(ans) {
+    const { boss, fac } = this.waiting_for_leave;
+    this.waiting_for_leave = null;
+
+    if (ans !== "yes") {
+      print("You refuse the ending. The hospital waits.");
+      return;
+    }
+
+    if (boss) {
+      if (fac === "null") {
+        print("Maybe the inside of that hospital was making me strange. All I needed was some fresh air.");
+        print("[ENDING: CULT-LOVER'S SALVATION]");
+      } else if (fac === "order") {
+        print("Wow, it's better than they said. In the ledgers out here.");
+        print("[ENDING: LEDGER-DODGER]");
+      } else if (fac === "kennel") {
+        print("Ohh my God my hooman I thought I lost you.");
+        print("You're never gonna leave me again. And you're definitely not gonna put me in that hospital. Again.");
+        print("[ENDING: REUNION WITH AN OLD FRIEND]");
+      } else {
+        print("You walk out but then get mauled to death by some rabid creature.");
+        print("[ENDING: FALSE HOPE]");
+      }
+    } else {
+      if (fac === "null") {
+        print("See? No resistance.");
+        print("This is what it feels like when the world stops arguing.");
+        print("Nothing is being taken. It's just not being replaced.");
+        print("You can rest now. Even that word won't be needed soon.");
+        print("[ENDING: STILLBORN PEACE]");
+      } else if (fac === "order") {
+        print("The ledger closes on your name. Balanced, but not remembered.");
+        print("[ENDING: CLEAN ACCOUNTING]");
+      } else if (fac === "kennel") {
+        print("You step outside. Somewhere, a dog howls like it recognizes you.");
+        print("[ENDING: LOYAL STRAY]");
+      } else {
+        print("You walk out but then get mauled to death by some rabid creature.");
+        print("[ENDING: FALSE HOPE]");
+      }
+    }
+
+    this.player.hp = 0;
+    this.running = false;
+  }
+
+  // =========================
+  // SAVE / LOAD (localStorage)
+  // =========================
+
+  save_game() {
+    const room_map = {};
+    for (const k in this.rooms) {
+      const r = this.rooms[k];
+      room_map[r.id] = r;
+    }
+
+    const data = {
+      player: {
+        hp: this.player.hp,
+        ammo: this.player.ammo,
+        weapon: this.player.weapon,
+        dagger_uses: this.player.dagger_uses,
+        faction: this.player.faction,
+        faction_rep: this.player.faction_rep,
+        scraps: this.player.scraps,
+        inventory: this.player.inventory,
+        room_id: this.player.room.id,
+        available_weapons: this.available_weapons
+      },
+      rooms: {}
+    };
+
+    for (const id in room_map) {
+      const r = room_map[id];
+      data.rooms[id] = {
+        id: r.id,
+        name: r.name,
+        desc: r.desc,
+        lore: r.lore,
+        visited: r.visited,
+        exits: {},
+        enemy: r.enemy ? {
+          name: r.enemy.name,
+          hp: r.enemy.hp,
+          min: r.enemy.min,
+          max: r.enemy.max,
+          desc: r.enemy.desc,
+          faction: r.enemy.faction
+        } : null,
+        npc: r.npc ? {
+          name: r.npc.name,
+          faction: r.npc.faction,
+          lines: r.npc.lines,
+          role: r.npc.role
+        } : null
+      };
+      for (const dir in r.exits) {
+        data.rooms[id].exits[dir] = r.exits[dir] ? r.exits[dir].id : null;
+      }
+    }
+
+    localStorage.setItem("dark_floof_save", JSON.stringify(data));
+    print("Saved.");
+  }
+
+  load_game() {
+    const raw = localStorage.getItem("dark_floof_save");
+    if (!raw) {
+      print("No save.");
+      return;
+    }
+
+    const data = JSON.parse(raw);
+    const loaded_rooms = {};
+
+    for (const id in data.rooms) {
+      const rdata = data.rooms[id];
+      const room = new Room(rdata.name, rdata.desc, rdata.lore, rdata.id);
+      room.visited = rdata.visited;
+      loaded_rooms[id] = room;
+    }
+
+    for (const id in data.rooms) {
+      const rdata = data.rooms[id];
+      const room = loaded_rooms[id];
+      for (const dir in rdata.exits) {
+        const target = rdata.exits[dir];
+        if (target && loaded_rooms[target]) {
+          room.exits[dir] = loaded_rooms[target];
+        }
+      }
+    }
+
+    for (const id in data.rooms) {
+      const rdata = data.rooms[id];
+      const room = loaded_rooms[id];
+
+      if (rdata.enemy) {
+        const e = rdata.enemy;
+        room.enemy = new Enemy(e.name, e.hp, e.min, e.max, e.desc, e.faction);
+      }
+
+      if (rdata.npc) {
+        const n = rdata.npc;
+        room.npc = new NPC(n.name, n.faction, n.lines, n.role);
+      }
+    }
+
+    this.rooms = {};
+    for (const id in loaded_rooms) {
+      const room = loaded_rooms[id];
+      const keyBase = room.name.toLowerCase().replace(/ /g, "_");
+      const key = `${keyBase}_${id.slice(0,4)}`;
+      this.rooms[key] = room;
+    }
+
+    const p = data.player;
+    this.player.hp = p.hp;
+    this.player.ammo = p.ammo;
+    this.player.weapon = p.weapon;
+    this.player.dagger_uses = p.dagger_uses;
+    this.player.faction = p.faction;
+    this.player.faction_rep = p.faction_rep;
+    this.player.scraps = p.scraps;
+    this.player.inventory = p.inventory;
+    this.available_weapons = p.available_weapons;
+
+    const saved_room = Object.values(this.rooms).find(r => r.id === p.room_id);
+    this.player.room = saved_room || Object.values(this.rooms)[0];
+
+    print("Loaded.");
+    this.in_title = false;
+    this.start();
+  }
+
+  // =========================
+  // UI / HELP
+  // =========================
+
+  look() {
+    const r = this.player.room;
+    print(`\n${r.name}`);
+    print(r.desc);
+    if (!r.visited && r.lore) print(r.lore);
+    r.visited = true;
+
+    if (r.enemy && r.enemy.alive()) print(`Enemy: ${r.enemy.name} — ${r.enemy.desc}`);
+    if (r.npc) print(`NPC: ${r.npc.name}`);
+    print(`Exits: ${Object.keys(r.exits).join(", ")}`);
+    print("(Your breath fogs the air slightly.)");
+  }
+
+  status() {
+    this.show_player();
+    print(`Reputation: ${JSON.stringify(this.player.faction_rep)}`);
+    print(`Effects: ${JSON.stringify(this.player.status_effects)}`);
+  }
+
+  show_player() {
+    print(`\n[HP: ${this.player.hp} | Ammo: ${this.player.ammo} | Dagger: ${this.player.dagger_uses} | Melee: ready | Faction: ${this.player.faction || "None"} | Scraps: ${this.player.scraps}]`);
+    print("(Your ears twitch at distant sounds.)");
+    print("(Type 'help' to see all commands.)");
+  }
+
+  cycle_weapon() {
+    const index = this.available_weapons.indexOf(this.player.weapon) || 0;
+    this.player.weapon = this.available_weapons[(index + 1) % this.available_weapons.length];
+    print(`Weapon ready: ${this.player.weapon.charAt(0).toUpperCase() + this.player.weapon.slice(1)}`);
+  }
+
+  help() {
+    print("\n=== COMMAND LIST ===");
+    print("look / l            – Re-describe the current room");
+    print("north / n           – Move north");
+    print("south / s           – Move south");
+    print("east / e            – Move east");
+    print("west / w            – Move west");
+    print("shoot               – Fire your Floofshot");
+    print("attack / fire       – Use your current weapon");
+    print("melee / hit / punch – Basic close-range attack");
+    print("dagger              – Use the Fang");
+    print("weapon              – Cycle weapons");
+    print("talk                – Speak to an NPC");
+    print("join                – Join a faction");
+    print("merchant / buy/shop – Trade scraps");
+    print("med                 – Use medication");
+    print("nap                 – Rest");
+    print("leave               – Attempt to exit the hospital");
+    print("status              – Show stats");
+    print("save                – Save game");
+    print("load                – Load game");
+    print("help                – Show this help");
+    print("quit / exit         – Quit");
+  }
+}
+
+// =========================
+// INPUT HANDLING
+// =========================
+
+function sendCmd() {
+  const input = document.getElementById("cmd");
+  const raw = input.value.trim().toLowerCase();
+  input.value = "";
+
+  if (raw === "") return;
+
+  // Title screen
+  if (game.in_title) {
+    game.handleTitleCommand(raw);
+    return;
+  }
+
+  // Merchant shop
+  if (game.waiting_for_shop) {
+    game.handleShopCommand(raw);
+    return;
+  }
+
+  // Leave endings
+  if (game.waiting_for_leave) {
+    game.handleLeaveCommand(raw);
+    return;
+  }
+
+  game.handleCommand(raw);
+}
+
+document.getElementById("cmd").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") sendCmd();
+});
+
+// =========================
+// MOBILE KEYBOARD
+// =========================
+
+function pressKey(cmd) {
+  document.getElementById("cmd").value = cmd;
+  sendCmd();
+}
+
+function toggleKeys() {
+  const mk = document.getElementById("mobileKeys");
+  mk.style.display = (mk.style.display === "none" || mk.style.display === "") ? "flex" : "none";
+}
+
+// Auto-enable keyboard on phones
+if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  document.getElementById("mobileKeys").style.display = "flex";
+}
+
+// =========================
+// START GAME
+// =========================
+
+const game = new Game();
+
+</script>
+</body>
+</html>
