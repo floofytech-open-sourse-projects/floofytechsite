@@ -15,9 +15,11 @@ body{
   justify-content:center;
   align-items:center;
   height:100vh;
+  background:#000;
+  position:relative;
 }
 
-/* BACKGROUND */
+/* BACKGROUND CANVAS */
 #bg{
   position:fixed;
   top:0;
@@ -25,13 +27,11 @@ body{
   width:100%;
   height:100%;
   z-index:-1;
-  background:#000;
 }
 
 /* CONTENT */
 .container{
   text-align:center;
-  transform:translateY(80px); /* <-- REAL downward control */
 }
 
 h1{
@@ -47,10 +47,11 @@ h1{
 
 .grid{
   display:grid;
-  grid-template-columns:repeat(3, 200px);
+  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
   gap:15px;
   justify-content:center;
-  margin-bottom:25px;
+  max-width:650px; /* keeps buttons centered in container */
+  margin:0 auto 25px auto;
 }
 
 a{
@@ -62,6 +63,7 @@ a{
   color:white;
   transition:0.2s;
   backdrop-filter:blur(4px);
+  text-align:center;
 }
 
 a:hover{
@@ -101,6 +103,8 @@ a:hover{
     <a href="husky-minigun-mayham.html">Husky Minigun Mayhem</a>
     <a href="neongrid.html">Neon Grid</a>
     <a href="wall.html">Wall</a>
+    <a href="numasfuk-interpreter.html">NUMASFUK Interpreter</a>
+    <a href="https://archive.org/details/floof-os" target="_blank">Install FloofOS</a>
   </div>
 
   <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
