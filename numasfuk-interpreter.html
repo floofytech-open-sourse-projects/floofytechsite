@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Online NUMASFUK Interpreter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 1.25rem 1.75rem;
+      border-bottom: 1px solid #1f2937;
+      background: #020617;
+    }
+    main {
+      max-width: 1100px;
+      margin: 1.5rem auto 3rem;
+      padding: 0 1.5rem;
+    }
+    h1, h2, h3 {
+      margin: 0 0 0.5rem;
+    }
+    p {
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 1.5rem;
+    }
+    .card {
+      background: #020617;
+      border-radius: 0.75rem;
+      border: 1px solid #1f2937;
+      padding: 1rem 1.25rem 1.25rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    }
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      background: #020617;
+      color: #e5e7eb;
+      border-radius: 0.5rem;
+      border: 1px solid #1f2937;
+      padding: 0.6rem 0.7rem;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    textarea:focus {
+      outline: 1px solid #22c55e;
+      border-color: #22c55e;
+    }
+    .label {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 0.25rem;
+    }
+    .controls {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    button {
+      background: #22c55e;
+      color: #022c22;
+      border: none;
+      border-radius: 999px;
+      padding: 0.45rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+    button:hover {
+      background: #16a34a;
+      transform: translateY(-1px);
+    }
+    button:disabled {
+      background: #4b5563;
+      color: #9ca3af;
+      cursor: default;
+      transform: none;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+    }
+    .mono {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.8rem;
+    }
+    .tape {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      font-size: 0.75rem;
+    }
+    .cell {
+      border-radius: 0.5rem;
+      border: 1px solid #1f2937;
+      padding: 0.3rem 0.4rem;
+      background: #020617;
+    }
+    .cell.active {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 1px #22c55e;
+    }
+    .cell-index {
+      color: #9ca3af;
+      margin-bottom: 0.15rem;
+    }
+    .cell-value {
+      color: #e5e7eb;
+      word-break: break-all;
+    }
+    .small {
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid #1f2937;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-right: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #22c55e;
+    }
+    .pill-dot.bad {
+      background: #f97373;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>NUMASFUK Online Interpreter</h1>
+  <p class="small">
+    16‑cell circular string tape · max 64 chars per cell · single numeric register · raw index jumps.
+  </p>
+</header>
+
+<main>
+  <div class="grid">
+    <section class="card">
+      <h2>Program (.naf)</h2>
+      <p class="small">
+        Core opcodes: <span class="mono">1 2 3 4 5(hex) 6(n) 7 8(bin) 9</span> · Extended: <span class="mono">A B E 0(n) +(n) -(n) C(hex) J(n) Z(n) N(n)</span>
+      </p>
+      <div class="label">Program</div>
+      <textarea id="code" spellcheck="false"></textarea>
+
+      <div class="label" style="margin-top:0.75rem;">Input (lines consumed by opcode <span class="mono">4</span>)</div>
+      <textarea id="input" spellcheck="false" style="min-height:90px;"></textarea>
+
+      <div class="controls">
+        <button id="runBtn" onclick="runProgram()">Run</button>
+        <button onclick="loadExample()">Load echo‑until‑empty example</button>
+        <span class="small" id="status"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Output & State</h2>
+
+      <div class="label">Program output</div>
+      <pre id="output"></pre>
+
+      <div class="label" style="margin-top:0.75rem;">Tape (16 circular string cells, max 64 chars each)</div>
+      <div id="tape" class="tape"></div>
+
+      <div class="label" style="margin-top:0.75rem;">Register & PC</div>
+      <div class="pill">
+        <span class="pill-dot"></span>
+        <span>Register: <span id="regVal">0</span></span>
+      </div>
+      <div class="pill">
+        <span class="pill-dot"></span>
+        <span>PC (raw index): <span id="pcVal">0</span></span>
+      </div>
+      <p class="small" style="margin-top:0.5rem;">
+        Jumps (<span class="mono">J Z N</span>) use raw character indices into the program string (0‑based).
+      </p>
+    </section>
+  </div>
+</main>
+
+<script>
+  const TAPE_SIZE = 16;
+  const MAX_STR_LEN = 64;
+
+  function clampString(s) {
+    return s.length > MAX_STR_LEN ? s.slice(0, MAX_STR_LEN) : s;
+  }
+
+  function isHexChar(c) {
+    return /[0-9a-fA-F]/.test(c);
+  }
+
+  function isBinChar(c) {
+    return c === '0' || c === '1';
+  }
+
+  function parseNumber(src, i) {
+    // expects '('digits')'
+    if (src[i] !== '(') return { value: null, next: i };
+    let j = i + 1;
+    let buf = '';
+    while (j < src.length && src[j] !== ')') {
+      if (/[0-9]/.test(src[j])) buf += src[j];
+      j++;
+    }
+    if (j >= src.length || src[j] !== ')') return { value: null, next: j };
+    const n = buf.length ? parseInt(buf, 10) : 0;
+    return { value: n, next: j + 1 };
+  }
+
+  function parseHexLiteral(src, i) {
+    if (src[i] !== '(') return { hex: '', next: i };
+    let j = i + 1;
+    let buf = '';
+    while (j < src.length && src[j] !== ')') {
+      if (isHexChar(src[j])) buf += src[j];
+      j++;
+    }
+    if (j < src.length && src[j] === ')') j++;
+    return { hex: buf, next: j };
+  }
+
+  function parseBinLiteral(src, i) {
+    if (src[i] !== '(') return { bin: '', next: i };
+    let j = i + 1;
+    let buf = '';
+    while (j < src.length && src[j] !== ')') {
+      if (isBinChar(src[j])) buf += src[j];
+      j++;
+    }
+    if (j < src.length && src[j] === ')') j++;
+    return { bin: buf, next: j };
+  }
+
+  function runProgram() {
+    const code = document.getElementById('code').value || '';
+    const inputRaw = document.getElementById('input').value || '';
+    const inputLines = inputRaw.split(/\r?\n/);
+    let inputIndex = 0;
+
+    let tape = new Array(TAPE_SIZE).fill('');
+    let ptr = 0;
+    let reg = 0;
+    let pc = 0;
+    let out = '';
+
+    const status = document.getElementById('status');
+    const outEl = document.getElementById('output');
+    status.textContent = '';
+    outEl.textContent = '';
+    let steps = 0;
+    const MAX_STEPS = 200000; // safety
+
+    function updateState() {
+      document.getElementById('regVal').textContent = reg;
+      document.getElementById('pcVal').textContent = pc;
+      renderTape(tape, ptr);
+      outEl.textContent = out;
+    }
+
+    function appendOutputByte(b) {
+      out += String.fromCharCode(b & 0xFF);
+    }
+
+    function executeSingleAt(index) {
+      let i = index;
+      if (i < 0 || i >= code.length) return i + 1;
+      const c = code[i];
+
+      switch (c) {
+        case '1': {
+          tape[ptr] = clampString(tape[ptr] + '1');
+          return i + 1;
+        }
+        case '2': {
+          ptr = (ptr + 1) % TAPE_SIZE;
+          return i + 1;
+        }
+        case '3': {
+          tape[ptr] = '0.0';
+          return i + 1;
+        }
+        case '4': {
+          const line = inputIndex < inputLines.length ? inputLines[inputIndex] : '';
+          inputIndex++;
+          tape[ptr] = clampString(line);
+          return i + 1;
+        }
+        case '5': {
+          const { hex, next } = parseHexLiteral(code, i + 1);
+          for (let k = 0; k < hex.length; k += 2) {
+            const chunk = hex.slice(k, k + 2);
+            if (chunk.length === 0) continue;
+            const b = parseInt(chunk, 16);
+            if (!Number.isNaN(b)) appendOutputByte(b);
+          }
+          return next;
+        }
+        case '6': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n == null || next >= code.length) return next;
+          const target = next;
+          for (let k = 0; k < n; k++) {
+            steps++;
+            if (steps > MAX_STEPS) break;
+            executeSingleAt(target);
+          }
+          // after repeating, skip over the repeated opcode and its args
+          let j = target;
+          const op = code[j];
+          if (op === '5') {
+            const parsed = parseHexLiteral(code, j + 1);
+            j = parsed.next;
+          } else if (op === '6' || op === '0' || op === '+' || op === '-' || op === 'J' || op === 'Z' || op === 'N') {
+            const parsed = parseNumber(code, j + 1);
+            j = parsed.next;
+          } else if (op === '8' || op === 'C') {
+            const parsed = op === '8'
+              ? parseBinLiteral(code, j + 1)
+              : parseHexLiteral(code, j + 1);
+            j = parsed.next;
+          } else {
+            j = j + 1;
+          }
+          return j;
+        }
+        case '7': {
+          const d = Math.floor(Math.random() * 10);
+          tape[ptr] = clampString(tape[ptr] + String(d));
+          return i + 1;
+        }
+        case '8': {
+          const { bin, next } = parseBinLiteral(code, i + 1);
+          if (bin.length > 0) {
+            const b = parseInt(bin, 2);
+            if (!Number.isNaN(b)) appendOutputByte(b);
+          }
+          return next;
+        }
+        case '9': {
+          for (let k = 0; k < TAPE_SIZE; k++) {
+            if (tape[k] !== '') {
+              out += tape[k] + '\n';
+            }
+          }
+          pc = code.length;
+          return code.length;
+        }
+        case 'A': {
+          ptr = (ptr + 1) % TAPE_SIZE;
+          return i + 1;
+        }
+        case 'B': {
+          ptr = (ptr - 1 + TAPE_SIZE) % TAPE_SIZE;
+          return i + 1;
+        }
+        case 'E': {
+          reg = tape[ptr].length === 0 ? 0 : 1;
+          return i + 1;
+        }
+        case '0': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n != null) reg = n;
+          return next;
+        }
+        case '+': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n != null) reg += n;
+          return next;
+        }
+        case '-': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n != null) reg -= n;
+          return next;
+        }
+        case 'C': {
+          const { hex, next } = parseHexLiteral(code, i + 1);
+          let targetByte = 0;
+          if (hex.length >= 2) {
+            targetByte = parseInt(hex.slice(0, 2), 16);
+            if (Number.isNaN(targetByte)) targetByte = 0;
+          }
+          if (tape[ptr].length === 0) {
+            reg = 0;
+          } else {
+            const first = tape[ptr].charCodeAt(0) & 0xFF;
+            reg = (first === targetByte) ? 1 : 0;
+          }
+          return next;
+        }
+        case 'J': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n == null) return next;
+          return n;
+        }
+        case 'Z': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n == null) return next;
+          return reg === 0 ? n : next;
+        }
+        case 'N': {
+          const { value: n, next } = parseNumber(code, i + 1);
+          if (n == null) return next;
+          return reg !== 0 ? n : next;
+        }
+        default: {
+          // ignore unknown / whitespace
+          return i + 1;
+        }
+      }
+    }
+
+    while (pc >= 0 && pc < code.length && steps < MAX_STEPS) {
+      steps++;
+      pc = executeSingleAt(pc);
+    }
+
+    if (steps >= MAX_STEPS) {
+      status.textContent = 'Stopped: step limit reached (possible infinite loop).';
+    } else {
+      status.textContent = 'Finished.';
+    }
+
+    updateState();
+  }
+
+  function renderTape(tape, ptr) {
+    const container = document.getElementById('tape');
+    container.innerHTML = '';
+    for (let i = 0; i < tape.length; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell' + (i === ptr ? ' active' : '');
+      const idx = document.createElement('div');
+      idx.className = 'cell-index';
+      idx.textContent = 'Cell ' + i;
+      const val = document.createElement('div');
+      val.className = 'cell-value';
+      val.textContent = tape[i];
+      cell.appendChild(idx);
+      cell.appendChild(val);
+      container.appendChild(cell);
+    }
+  }
+
+  function loadExample() {
+    const example =
+`4E Z(40)5(0A)93 4J(10)5(0A)`;
+    document.getElementById('code').value = example;
+    document.getElementById('input').value = 'hello world';
+  }
+
+  // initial render
+  renderTape(new Array(TAPE_SIZE).fill(''), 0);
+</script>
+</body>
+</html>
