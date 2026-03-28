@@ -125,12 +125,45 @@ window.addEventListener("resize", resize);
 
 let offset = 0;
 
+// colors to fade through
+const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"]; // purple → dark green → blue → orange
+const cycleDuration = 120000; // 2 minutes in ms
+
+function lerpColor(a, b, t) {
+  // linear interpolation between two hex colors
+  const ah = parseInt(a.slice(1), 16),
+        bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff,
+        ag = (ah >> 8) & 0xff,
+        ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff,
+        bg = (bh >> 8) & 0xff,
+        bb = bh & 0xff;
+  const rr = Math.round(ar + (br-ar)*t);
+  const rg = Math.round(ag + (bg-ag)*t);
+  const rb = Math.round(ab + (bb-ab)*t);
+  return `rgb(${rr},${rg},${rb})`;
+}
+
+function getCurrentColor() {
+  const now = Date.now() % cycleDuration;
+  const t = now / cycleDuration * colors.length;
+  const index = Math.floor(t);
+  const nextIndex = (index + 1) % colors.length;
+  return lerpColor(colors[index], colors[nextIndex], t - index);
+}
+
 function draw(){
+  // fade previous frame
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  ctx.strokeStyle = "#00ffff";
-  ctx.lineWidth = 1;
+  // grid lines with dynamic color
+  ctx.lineWidth = 2;
+  const currentColor = getCurrentColor();
+  ctx.strokeStyle = currentColor;
+  ctx.shadowColor = currentColor;
+  ctx.shadowBlur = 5;
 
   const spacing = 40;
   offset += 0.5;
@@ -149,7 +182,8 @@ function draw(){
     ctx.stroke();
   }
 
-  ctx.fillStyle = "rgba(0,255,255,0.05)";
+  // faint overlay for subtle glow
+  ctx.fillStyle = "rgba(0,255,255,0.02)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   requestAnimationFrame(draw);
