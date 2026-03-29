@@ -50,10 +50,11 @@ h1{
   grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
   gap:15px;
   justify-content:center;
-  max-width:650px; /* keeps buttons centered in container */
+  max-width:650px;
   margin:0 auto 25px auto;
 }
 
+/* BUTTONS + SHIMMER */
 a{
   display:block;
   padding:15px;
@@ -64,12 +65,44 @@ a{
   transition:0.2s;
   backdrop-filter:blur(4px);
   text-align:center;
+  position:relative;
+  overflow:hidden;
 }
 
 a:hover{
   background:#0ff;
   color:black;
   transform:scale(1.08);
+}
+
+/* shimmer corners */
+a::before, a::after{
+  content:"";
+  position:absolute;
+  width:12px;
+  height:12px;
+  background:linear-gradient(45deg, rgba(255,255,255,0.6), rgba(0,255,255,0.8));
+  opacity:0;
+  transition:opacity 0.3s;
+  pointer-events:none;
+  filter:blur(1px);
+}
+
+a::before{
+  top:0;
+  left:0;
+  border-radius:0 0 10px 0;
+}
+
+a::after{
+  bottom:0;
+  right:0;
+  border-radius:10px 0 0 0;
+}
+
+a:hover::before,
+a:hover::after{
+  opacity:1;
 }
 
 .main-site{
@@ -126,11 +159,10 @@ window.addEventListener("resize", resize);
 let offset = 0;
 
 // colors to fade through
-const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"]; // purple → dark green → blue → orange
-const cycleDuration = 120000; // 2 minutes in ms
+const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"];
+const cycleDuration = 120000;
 
 function lerpColor(a, b, t) {
-  // linear interpolation between two hex colors
   const ah = parseInt(a.slice(1), 16),
         bh = parseInt(b.slice(1), 16);
   const ar = (ah >> 16) & 0xff,
@@ -154,11 +186,9 @@ function getCurrentColor() {
 }
 
 function draw(){
-  // fade previous frame
   ctx.fillStyle = "rgba(0,0,0,0.25)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // grid lines with dynamic color
   ctx.lineWidth = 2;
   const currentColor = getCurrentColor();
   ctx.strokeStyle = currentColor;
@@ -182,7 +212,6 @@ function draw(){
     ctx.stroke();
   }
 
-  // faint overlay for subtle glow
   ctx.fillStyle = "rgba(0,255,255,0.02)";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -190,6 +219,53 @@ function draw(){
 }
 
 draw();
+
+/* SCHOOL SAFE MODE */
+function schoolSafeMode(){
+  document.body.innerHTML = `
+    <div style="text-align:center; padding:40px; font-family:monospace; color:white;">
+      <h1 style="text-shadow:0 0 10px #0ff;">FloofyTech (School‑Safe Mode)</h1>
+      <p style="color:#01ff65;">Some features were blocked, so we switched to a safe version.</p>
+
+      <div style="margin-top:30px; display:flex; flex-direction:column; gap:15px;">
+        <a href="darkfloof.html" style="color:#0ff;">Dark Floof</a>
+        <a href="wall.html" style="color:#0ff;">Wall</a>
+        <a href="neongrid.html" style="color:#0ff;">Neon Grid</a>
+        <a href="numasfuk-interpreter.html" style="color:#0ff;">NUMASFUK Interpreter</a>
+      </div>
+
+      <p style="margin-top:40px; font-size:12px; opacity:0.7;">
+        Canvas, animations, and external links disabled for safety.
+      </p>
+    </div>
+  `;
+}
+
+/* SAFE MODE TOGGLE */
+let safeModeActive = false;
+
+document.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "y") {
+    if (!safeModeActive) {
+      safeModeActive = true;
+      schoolSafeMode();
+    } else {
+      safeModeActive = false;
+      location.reload(); // restore full portal
+    }
+  }
+});
+
+/* AUTO SAFE MODE */
+setTimeout(() => {
+  if (!canvas.getContext) schoolSafeMode();
+
+  try{
+    if (window.top !== window.self) schoolSafeMode();
+  }catch(e){
+    schoolSafeMode();
+  }
+}, 1500);
 </script>
 
 </body>
