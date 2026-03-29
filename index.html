@@ -118,6 +118,18 @@ a:hover::after{
 .main-site:hover{
   background:#ff0000;
 }
+
+/* FOOTNOTE */
+.footnote{
+  position:fixed;
+  bottom:8px;
+  right:8px;
+  font-size:12px;
+  opacity:0.7;
+  color:#0ff;
+  text-shadow:0 0 5px #0ff;
+  font-family:monospace;
+}
 </style>
 </head>
 
@@ -144,6 +156,8 @@ a:hover::after{
     Go to Main Site (UNSTABLE)
   </a>
 </div>
+
+<div class="footnote">join the Lydia fanclub</div>
 
 <script>
 const canvas = document.getElementById("bg");
@@ -251,7 +265,7 @@ document.addEventListener("keydown", (e) => {
       schoolSafeMode();
     } else {
       safeModeActive = false;
-      location.reload(); // restore full portal
+      location.reload();
     }
   }
 });
