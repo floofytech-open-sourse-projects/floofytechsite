@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Husky Minigun Mayhem</title>
+<style>
+body { margin:0; overflow:hidden; background:#111; font-family:monospace; }
+canvas { display:block; background:#222; }
+
+#hud{
+  position:absolute;
+  top:10px;
+  left:10px;
+  color:white;
+  font-size:18px;
+  text-shadow:0 0 6px #000;
+}
+
+#mobileToggle{
+  position:fixed;
+  top:10px;
+  right:10px;
+  width:44px;
+  height:44px;
+  background:rgba(30,30,30,0.85);
+  border:2px solid #555;
+  border-radius:10px;
+  font-size:22px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:50;
+  user-select:none;
+  transition:border-color 0.2s, background 0.2s;
+}
+
+#mobileToggle.active{
+  border-color:#0ff;
+  background:rgba(0,60,70,0.9);
+}
+
+.control{
+  position:absolute;
+  border-radius:50%;
+  opacity:0.35;
+  touch-action:none;
+}
+
+.control.hidden{
+  display:none;
+}
+
+#moveBase{
+  width:140px;
+  height:140px;
+  background:#777;
+  bottom:40px;
+  left:40px;
+}
+
+#moveStick{
+  width:70px;
+  height:70px;
+  background:#ccc;
+  bottom:75px;
+  left:75px;
+}
+
+#shootBtn{
+  width:110px;
+  height:110px;
+  background:red;
+  bottom:50px;
+  right:50px;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="game"></canvas>
+<div id="hud"></div>
+
+<button id="mobileToggle" title="Toggle phone controls">📱</button>
+
+<div id="moveBase" class="control hidden"></div>
+<div id="moveStick" class="control hidden"></div>
+<div id="shootBtn" class="control hidden"></div>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx    = canvas.getContext("2d");
+const hud    = document.getElementById("hud");
+
+canvas.width  = innerWidth;
+canvas.height = innerHeight;
+
+const player = {
+  x: canvas.width  / 2,
+  y: canvas.height / 2,
+  size: 40,
+  speed: 5,
+  angle: 0,
+  health: 100
+};
+
+let bullets   = [];
+let enemies   = [];
+let powerUps  = [];
+
+let mouse    = { x: canvas.width / 2, y: 0 };
+let shooting = false;
+
+let score         = 0;
+let shootCooldown = 0;
+let spawnCooldown = 0;
+
+let highScore = parseInt(localStorage.getItem("huskyHighScore") || "0");
+
+const bulletSpeed = 12;
+const enemySpeed  = 2;
+
+const keys = {};
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup",   e => keys[e.key.toLowerCase()] = false);
+
+canvas.addEventListener("mousemove", e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+canvas.addEventListener("mousedown", () => shooting = true);
+canvas.addEventListener("mouseup",   () => shooting = false);
+
+/* PHONE CONTROLS TOGGLE */
+
+const mobileToggle = document.getElementById("mobileToggle");
+const moveBase     = document.getElementById("moveBase");
+const moveStick    = document.getElementById("moveStick");
+const shootBtn     = document.getElementById("shootBtn");
+
+let mobileEnabled = false;
+
+function enableMobile() {
+  mobileEnabled = true;
+  mobileToggle.classList.add("active");
+  moveBase.classList.remove("hidden");
+  moveStick.classList.remove("hidden");
+  shootBtn.classList.remove("hidden");
+}
+
+function disableMobile() {
+  mobileEnabled = false;
+  mobileToggle.classList.remove("active");
+  moveBase.classList.add("hidden");
+  moveStick.classList.add("hidden");
+  shootBtn.classList.add("hidden");
+}
+
+// Auto-enable on touch devices
+if (navigator.maxTouchPoints > 0) enableMobile();
+
+mobileToggle.addEventListener("click", () => {
+  if (mobileEnabled) disableMobile();
+  else enableMobile();
+});
+
+/* MOBILE JOYSTICK */
+
+let joyActive = false;
+let joyX = 0;
+let joyY = 0;
+
+moveBase.addEventListener("touchstart", e => {
+  joyActive = true;
+  e.preventDefault();
+}, { passive: false });
+
+moveBase.addEventListener("touchmove", e => {
+  const rect  = moveBase.getBoundingClientRect();
+  const touch = e.touches[0];
+
+  joyX = (touch.clientX - (rect.left + rect.width  / 2)) / 50;
+  joyY = (touch.clientY - (rect.top  + rect.height / 2)) / 50;
+  const mag = Math.hypot(joyX, joyY);
+  if (mag > 1) { joyX /= mag; joyY /= mag; }
+
+  const cx    = rect.left + rect.width  / 2;
+  const cy    = rect.top  + rect.height / 2;
+  const clamp = 35;
+  const dx    = Math.min(clamp, Math.max(-clamp, touch.clientX - cx));
+  const dy    = Math.min(clamp, Math.max(-clamp, touch.clientY - cy));
+  moveStick.style.left   = (40 + 35 + dx) + "px";
+  moveStick.style.bottom = (40 + 35 - dy) + "px";
+  e.preventDefault();
+}, { passive: false });
+
+moveBase.addEventListener("touchend", () => {
+  joyActive = false;
+  joyX = 0;
+  joyY = 0;
+  moveStick.style.left   = "75px";
+  moveStick.style.bottom = "75px";
+});
+
+shootBtn.addEventListener("touchstart", () => shooting = true);
+shootBtn.addEventListener("touchend",   () => shooting = false);
+
+/* GAME OVER SCREEN */
+
+function showGameOver() {
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem("huskyHighScore", highScore);
+  }
+
+  const isNewRecord = score > 0 && score >= highScore;
+
+  const overlay = document.createElement("div");
+  overlay.style.cssText = `
+    position:fixed; inset:0; background:rgba(0,0,0,0.82);
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; font-family:monospace; color:white;
+    z-index:99;
+  `;
+
+  overlay.innerHTML = `
+    <div style="font-size:36px; margin-bottom:16px; text-shadow:0 0 12px #f55;">WOOF. game over.</div>
+    <div style="font-size:22px; margin-bottom:8px;">score: <b style="color:#ff0">${score}</b></div>
+    <div style="font-size:18px; margin-bottom:${isNewRecord ? 8 : 28}px; color:#aaa;">
+      high score: <b style="color:#0ff">${highScore}</b>
+    </div>
+    ${isNewRecord ? `<div style="font-size:14px; color:#0f0; margin-bottom:24px;">★ new record! ★</div>` : ""}
+    <button id="restartBtn" style="
+      padding:12px 32px; font-size:18px; font-family:monospace;
+      background:#222; color:white; border:2px solid #0ff;
+      border-radius:8px; cursor:pointer;">
+      play again
+    </button>
+  `;
+
+  document.body.appendChild(overlay);
+  document.getElementById("restartBtn").addEventListener("click", () => location.reload());
+}
+
+/* HUSKY DRAW */
+
+function drawHusky(ctx, angle) {
+  ctx.save();
+  ctx.rotate(angle);
+
+  // gun barrel
+  ctx.fillStyle = "#888";
+  ctx.beginPath(); ctx.roundRect(14, -5, 32, 10, 3); ctx.fill();
+  ctx.fillStyle = "#555";
+  ctx.beginPath(); ctx.roundRect(42, -6, 6, 12, 2); ctx.fill();
+
+  // body
+  ctx.fillStyle = "#c8c8d8";
+  ctx.beginPath(); ctx.ellipse(0, 0, 20, 17, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#f0f0f0";
+  ctx.beginPath(); ctx.ellipse(0, 4, 12, 10, 0, 0, Math.PI*2); ctx.fill();
+
+  // ears
+  ctx.fillStyle = "#9090a8";
+  ctx.beginPath(); ctx.moveTo(-10,-14); ctx.lineTo(-18,-28); ctx.lineTo(-3,-20); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#c07080";
+  ctx.beginPath(); ctx.moveTo(-10,-16); ctx.lineTo(-16,-26); ctx.lineTo(-5,-20); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#9090a8";
+  ctx.beginPath(); ctx.moveTo(4,-15); ctx.lineTo(10,-28); ctx.lineTo(16,-17); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#c07080";
+  ctx.beginPath(); ctx.moveTo(5,-16); ctx.lineTo(10,-25); ctx.lineTo(14,-18); ctx.closePath(); ctx.fill();
+
+  // head
+  ctx.fillStyle = "#b8b8cc";
+  ctx.beginPath(); ctx.ellipse(0,-10,16,14,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#f5f5f5";
+  ctx.beginPath(); ctx.ellipse(0,-8,9,12,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#5a5a70";
+  ctx.beginPath(); ctx.ellipse(0,-18,7,5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#8a8aaa";
+  ctx.beginPath(); ctx.ellipse(-11,-9,6,7,-0.2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(11,-9,6,7,0.2,0,Math.PI*2); ctx.fill();
+
+  // muzzle + nose
+  ctx.fillStyle = "#e8e4d8";
+  ctx.beginPath(); ctx.ellipse(0,-4,8,6,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#1a1a2a";
+  ctx.beginPath(); ctx.ellipse(0,-7,4,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.beginPath(); ctx.ellipse(-1.5,-8,1.5,1,0,0,Math.PI*2); ctx.fill();
+
+  // eyes — whites
+  ctx.fillStyle = "white";
+  ctx.beginPath(); ctx.ellipse(-6,-13,4,3.5,-0.2,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6,-13,4,3.5,0.2,0,Math.PI*2); ctx.fill();
+  // irises (ice blue)
+  ctx.fillStyle = "#5bbddd";
+  ctx.beginPath(); ctx.ellipse(-6,-13,2.8,2.8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6,-13,2.8,2.8,0,0,Math.PI*2); ctx.fill();
+  // pupils
+  ctx.fillStyle = "#111";
+  ctx.beginPath(); ctx.ellipse(-6,-13,1.5,1.5,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6,-13,1.5,1.5,0,0,Math.PI*2); ctx.fill();
+  // highlights
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.beginPath(); ctx.ellipse(-5.2,-13.8,0.8,0.8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(6.8,-13.8,0.8,0.8,0,0,Math.PI*2); ctx.fill();
+
+  // tail
+  ctx.strokeStyle = "#9090a8"; ctx.lineWidth = 6; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.arc(-4,8,14,0.3,-1.2,true); ctx.stroke();
+  ctx.strokeStyle = "#d8d8e8"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(-4,8,14,0.3,-1.2,true); ctx.stroke();
+
+  ctx.restore();
+}
+
+/* GAME LOOP */
+
+let running = true;
+
+function update() {
+  if (!running) return;
+
+  // movement
+  if (keys["w"]) player.y -= player.speed;
+  if (keys["s"]) player.y += player.speed;
+  if (keys["a"]) player.x -= player.speed;
+  if (keys["d"]) player.x += player.speed;
+
+  if (joyActive) {
+    player.x += joyX * player.speed;
+    player.y += joyY * player.speed;
+  }
+
+  player.x = Math.max(player.size/2, Math.min(canvas.width  - player.size/2, player.x));
+  player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2, player.y));
+
+  player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+  // shooting
+  if (shooting && shootCooldown <= 0) {
+    bullets.push({
+      x:  player.x + Math.cos(player.angle) * 20,
+      y:  player.y + Math.sin(player.angle) * 20,
+      dx: Math.cos(player.angle) * bulletSpeed,
+      dy: Math.sin(player.angle) * bulletSpeed
+    });
+    shootCooldown = 5;
+  }
+  if (shootCooldown > 0) shootCooldown--;
+
+  // bullets
+  bullets = bullets.filter(b => {
+    b.x += b.dx;
+    b.y += b.dy;
+    return b.x >= 0 && b.x <= canvas.width && b.y >= 0 && b.y <= canvas.height;
+  });
+
+  // spawn enemies
+  if (spawnCooldown <= 0) {
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
+    if (edge === 0) { x = 0;            y = Math.random() * canvas.height; }
+    if (edge === 1) { x = canvas.width; y = Math.random() * canvas.height; }
+    if (edge === 2) { x = Math.random() * canvas.width; y = 0; }
+    if (edge === 3) { x = Math.random() * canvas.width; y = canvas.height; }
+    enemies.push({ x, y, size: 30, health: 20 });
+    spawnCooldown = 60 - Math.min(score / 10, 50);
+  } else {
+    spawnCooldown--;
+  }
+
+  // enemies + bullet collision
+  const bulletsToRemove = new Set();
+
+  enemies = enemies.filter(e => {
+    const dx   = player.x - e.x;
+    const dy   = player.y - e.y;
+    const dist = Math.hypot(dx, dy);
+
+    e.x += dx / dist * enemySpeed;
+    e.y += dy / dist * enemySpeed;
+
+    if (dist < 35) {
+      player.health -= 0.4;
+      return false;
+    }
+
+    for (let j = 0; j < bullets.length; j++) {
+      if (bulletsToRemove.has(j)) continue;
+      const d = Math.hypot(bullets[j].x - e.x, bullets[j].y - e.y);
+      if (d < e.size / 2) {
+        e.health -= 10;
+        bulletsToRemove.add(j);
+        if (e.health <= 0) {
+          score += 10;
+          if (Math.random() < 0.1) powerUps.push({ x: e.x, y: e.y });
+          return false;
+        }
+      }
+    }
+    return e.health > 0;
+  });
+
+  bullets = bullets.filter((_, j) => !bulletsToRemove.has(j));
+
+  // powerups
+  powerUps = powerUps.filter(p => {
+    const d = Math.hypot(player.x - p.x, player.y - p.y);
+    if (d < 30) {
+      player.health = Math.min(100, player.health + 20);
+      return false;
+    }
+    return true;
+  });
+
+  // game over
+  if (player.health <= 0) {
+    running = false;
+    draw();
+    showGameOver();
+    return;
+  }
+
+  draw();
+  requestAnimationFrame(update);
+}
+
+/* DRAW */
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // husky player
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  drawHusky(ctx, player.angle);
+  ctx.restore();
+
+  // bullets
+  ctx.fillStyle = "yellow";
+  bullets.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // enemies
+  enemies.forEach(e => {
+    ctx.fillStyle = "#cc2222";
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, 15, 0, Math.PI * 2);
+    ctx.fill();
+    const hp = e.health / 20;
+    ctx.fillStyle = `hsl(${hp * 120}, 80%, 50%)`;
+    ctx.fillRect(e.x - 12, e.y - 22, 24 * hp, 4);
+  });
+
+  // powerups
+  powerUps.forEach(p => {
+    const pulse = 0.8 + 0.2 * Math.sin(Date.now() / 200);
+    ctx.fillStyle = `rgba(0,220,80,${pulse})`;
+    ctx.fillRect(p.x - 3, p.y - 10, 6, 20);
+    ctx.fillRect(p.x - 10, p.y - 3, 20, 6);
+  });
+
+  // health bar
+  const barW = 160, barH = 14, bx = 10, by = 40;
+  ctx.fillStyle = "#333";
+  ctx.fillRect(bx, by, barW, barH);
+  ctx.fillStyle = `hsl(${player.health * 1.2}, 80%, 45%)`;
+  ctx.fillRect(bx, by, barW * (player.health / 100), barH);
+  ctx.strokeStyle = "#888"; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, by, barW, barH);
+
+  hud.innerHTML = "score: " + score + "<br>best: " + highScore;
+}
+
+update();
+
+</script>
+</body>
+</html>
