@@ -1,0 +1,1627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Floof II — The Stacks Beneath</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080808; --fg: #b8c0a8; --dim: #444840;
+    --accent: #8aac88; --red: #c84040; --green: #58a858;
+    --yellow: #c8a030; --blue: #6888c8; --purple: #9878c8;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--fg);
+    font-family: 'Share Tech Mono', 'Courier New', monospace; font-size: 14px; line-height: 1.65; }
+  #terminal { display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; padding: 0 12px; }
+  #output { flex: 1; overflow-y: auto; padding: 12px 0 8px; scroll-behavior: smooth; }
+  .line { white-space: pre-wrap; word-break: break-word; }
+  .dim    { color: var(--dim); }
+  .accent { color: var(--accent); }
+  .red    { color: var(--red); }
+  .green  { color: var(--green); }
+  .yellow { color: var(--yellow); }
+  .blue   { color: var(--blue); }
+  .purple { color: var(--purple); }
+  .bold   { color: #d8e0c8; }
+  #input-row { display: flex; align-items: center; border-top: 1px solid #181c14; padding: 8px 0 12px; gap: 6px; }
+  #prompt { color: var(--dim); flex-shrink: 0; }
+  #cmd { background: transparent; border: none; outline: none; color: var(--fg); font-family: inherit; font-size: inherit; flex: 1; caret-color: var(--fg); }
+  #output::-webkit-scrollbar { width: 4px; }
+  #output::-webkit-scrollbar-thumb { background: #222820; border-radius: 2px; }
+  #statusbar { display: flex; gap: 14px; padding: 6px 0; border-bottom: 1px solid #181c14; color: var(--dim); font-size: 12px; flex-wrap: wrap; }
+  #statusbar span { color: var(--fg); }
+</style>
+</head>
+<body>
+<div id="terminal">
+  <div id="statusbar">
+    <div id="sb-name">―</div>
+    <div id="sb-hp">HP ―</div>
+    <div id="sb-faction">Faction: ―</div>
+    <div id="sb-dread">Dread: ―</div>
+    <div id="sb-mask">Mask: ―</div>
+    <div id="sb-gun">Gun: None</div>
+    <div id="sb-scraps">Scraps: ―</div>
+  </div>
+  <div id="output"></div>
+  <div id="input-row">
+    <span id="prompt">&gt;&nbsp;</span>
+    <input id="cmd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+  </div>
+</div>
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const ROOM_LORE = [
+  "The shelves lean in, like they're trying to read you.",
+  "Dust motes drift in patterns that feel like handwriting.",
+  "You hear pages turning, but nothing nearby is open.",
+  "A draft carries the smell of old ink and wet fur.",
+  "Some of these books have your pawprints on the covers.",
+  "A card catalog drawer hangs open, labels scratched out.",
+  "The silence here feels curated, not accidental.",
+  "You feel watched by things that never finished becoming real.",
+  "The air tastes like glue and forgotten promises.",
+  "You smell your own fear, cataloged and cross-referenced.",
+  "A shelf bleeds ink from a crack no one bothered to seal.",
+  "The floor is warm here, like something slept on it recently.",
+  "You find a dog-eared page with your name almost written on it.",
+  "The room smells faintly of a house you've never lived in.",
+  "Something counted how long you stood still just now."
+];
+const NULL_DIALOG = [
+  "You look tired. Everyone does, before they understand.",
+  "It's all very loud at first. That isn't your fault.",
+  "You don't have to explain yourself. Existence already did that badly.",
+  "We noticed you because you keep going. That's usually the last symptom.",
+  "You can sit, if you want. Nothing will happen while you're still.",
+  "You've been correcting errors that weren't yours to fix.",
+  "People call this survival. It's more like repetition.",
+  "We don't judge effort. We just measure how long it hurts.",
+  "Birth isn't sacred. It's procedural.",
+  "Hope is an optimization loop. It never exits cleanly.",
+  "Ending isn't destruction. It's closure.",
+  "You were never supposed to carry this much continuation.",
+  "If you stop now, nothing will chase you.",
+  "Joining us doesn't give power. It removes obligations.",
+  "You won't feel better. You'll feel finished.",
+  "Memories will stop insisting on themselves.",
+  "This is what it feels like when the world stops arguing.",
+  "You can rest now. Even that word won't be needed soon."
+];
+const ROOM_NAMES = [
+  "Dustfall Aisle","Ink-Swallowed Row","Binding Corridor","Misfiled Wing","Shadow Stacks",
+  "Forgotten Annex","Scribe's Loop","Quiet Archive","Unsorted Gallery","Catalog Rupture",
+  "Palimpsest Hall","The Overdue Alcove","Index Fracture","Unwritten Vestibule",
+  "The Margin Passages","Errata Chamber","Footnote Depths","The Redacted Corridor",
+  "Cross-Reference Pit","Final Draft Atrium"
+];
+const ROOM_DESCS = [
+  "Shelves tilt at impossible angles.",
+  "Ink stains form pawprints that aren't yours.",
+  "A cold draft whispers through torn pages.",
+  "Something rearranged the books while you blinked.",
+  "The shelves hum softly, like they're thinking.",
+  "Loose pages drift like snow.",
+  "A lantern flickers with no flame.",
+  "The silence feels padded, intentional.",
+  "Books breathe in shallow, papery gasps.",
+  "A card catalog drawer slams shut on its own.",
+  "Every spine faces inward, hiding its title.",
+  "The ceiling is a second floor made of stacked manuscripts.",
+  "A reading chair sits perfectly centred in an empty room.",
+  "The ink on the walls is still wet.",
+  "Shelves grow from the floor like ribs."
+];
+const BIOMES = ["stacks","stacks","stacks","stacks","archivist_loop","archivist_loop",
+  "null_wing","null_wing","null_wing","binding_floor","binding_floor","binding_floor",
+  "fang_vault","margin_passages","margin_passages","errata_chamber","errata_chamber"];
+
+const ENEMY_POOL = [
+  { name:"Ink Wraith",       hp:[18,28], atk:[5,8],  def:[2,4], spd:9,  tags:["ink"] },
+  { name:"Misbound Page",    hp:[15,25], atk:[4,7],  def:[1,3], spd:9,  tags:["page"] },
+  { name:"Shelf Crawler",    hp:[20,30], atk:[6,9],  def:[3,5], spd:9,  tags:[] },
+  { name:"Null Echo",        hp:[18,28], atk:[6,9],  def:[2,4], spd:9,  tags:["null"] },
+  { name:"Catalog Revenant", hp:[22,32], atk:[7,10], def:[3,5], spd:9,  tags:["order"] },
+  { name:"Ink-Bleached Pup", hp:[16,24], atk:[5,8],  def:[2,3], spd:9,  tags:["kennel"] },
+  { name:"Torn Index Card",  hp:[10,18], atk:[4,6],  def:[1,2], spd:9,  tags:["page"] },
+  { name:"Binding Wraith",   hp:[24,34], atk:[8,11], def:[4,6], spd:9,  tags:["binding"] }
+];
+
+const INK_GUNS = [
+  { name:"Ink Pistol",      desc:"A small brass frame loaded with compressed ink cartridges. Standard Order issue.",
+    dmgMin:8,  dmgMax:14, shells:1, effect:null },
+  { name:"Scribe's Rifle",  desc:"A long-barrelled weapon that fires hardened ink rods. Hits like a closed ledger.",
+    dmgMin:18, dmgMax:28, shells:2, effect:"ink_burn" },
+  { name:"Binding Shotgun", desc:"Fires a spread of binding-cord pellets. The Kennel modified this one.",
+    dmgMin:12, dmgMax:20, shells:3, effect:"aoe" }
+];
+
+const SKILL_DESCS = {
+  pack_howl:"All Kennel members ATK +2.", scribe_mark:"Lowers enemy DEF.",
+  fang_rush:"Fast multi-hit kennel strike.", tail_feint:"Damage + slows enemy.",
+  balance_ledger:"Damage scales with missing HP.", ink_seal:"Lowers enemy ATK.",
+  guard_entry:"Boosts party DEF.", reckoning_strike:"Heavy single hit.",
+  erase_emotion:"Lowers enemy ATK and DEF.", quiet_pulse:"Heals Null allies.",
+  unmake:"High damage, hurts user.", echo_burst:"AoE Null damage.",
+  mask_ink_lash:"Ink damage + DEF down.", mask_scribe_guard:"Party DEF +3.",
+  mask_quiet_rend:"Null damage + dread.", mask_unmake_pulse:"AoE Null.",
+  mask_hunter_rush:"Fast multi-hit.", mask_pack_instinct:"Party SPD +2.",
+  mask_fang_cleave:"Heavy physical.", mask_seal_cut:"Damage + ATK down.",
+  mask_index_gaze:"Reveal enemy stats.", mask_hidden_shelf:"Reveal hidden exit.",
+  mask_margin_step:"Bypass DEF.", mask_ghost_step:"Move without Linger check.",
+  mask_errata_seal:"Overwrite enemy buff.", mask_index_rewrite:"Lower enemy stats."
+};
+
+const MASK_TEMPLATES = [
+  { name:"Ink-Drowned Pup",    arcana:"order",    stats:{hp:10,atk:2,def:4,spd:-1}, skills:["mask_ink_lash","mask_scribe_guard"],    passives:["mask_ink_memory"] },
+  { name:"Null Echo of You",   arcana:"null",     stats:{hp:-5,atk:4,def:1,spd:3},  skills:["mask_quiet_rend","mask_unmake_pulse"],  passives:["mask_dread_resist"] },
+  { name:"First-Birth Hunter", arcana:"kennel",   stats:{hp:5,atk:5,def:2,spd:2},   skills:["mask_hunter_rush","mask_pack_instinct"],passives:["mask_speed_scent"] },
+  { name:"Fang Echo",          arcana:"fang",     stats:{hp:0,atk:7,def:0,spd:1},   skills:["mask_fang_cleave","mask_seal_cut"],     passives:["mask_limit_charge"] },
+  { name:"Unwritten Librarian",arcana:"unwritten",stats:{hp:8,atk:1,def:3,spd:2},   skills:["mask_index_gaze","mask_hidden_shelf"],  passives:["mask_page_power"] },
+  { name:"Margin Wanderer",    arcana:"unwritten",stats:{hp:3,atk:2,def:2,spd:4},   skills:["mask_margin_step","mask_hidden_shelf"], passives:["mask_page_power"] },
+  { name:"Overdue Ghost",      arcana:"null",     stats:{hp:-8,atk:6,def:0,spd:5},  skills:["mask_quiet_rend","mask_ghost_step"],    passives:["mask_dread_resist"] },
+  { name:"Errata-Marked Hound",arcana:"order",    stats:{hp:6,atk:3,def:5,spd:-1},  skills:["mask_ink_lash","mask_errata_seal"],     passives:["mask_ink_memory"] },
+  { name:"Pack Remnant",       arcana:"kennel",   stats:{hp:8,atk:4,def:3,spd:3},   skills:["mask_pack_instinct","mask_hunter_rush"],passives:["mask_speed_scent"] },
+  { name:"The Index Itself",   arcana:"unwritten",stats:{hp:15,atk:0,def:6,spd:0},  skills:["mask_index_gaze","mask_index_rewrite"], passives:["mask_page_power","mask_ink_memory"] }
+];
+
+// ============================================================
+// UTILITY
+// ============================================================
+function ri(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+function uid(){return Math.random().toString(36).substr(2,9);}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let G = null;
+let setupPhase = "title";
+let pendingDiff = "normal";
+
+function newGame(name, faction, difficulty) {
+  const dm = difficulty==="gentle"?0.8:difficulty==="cruel"?1.25:1.0;
+  const er = difficulty==="gentle"?0.45:difficulty==="cruel"?0.85:0.70;
+  const drm= difficulty==="gentle"?0.6:difficulty==="cruel"?1.4:1.0;
+  G = {
+    name, faction, difficulty,
+    damageMult:dm, encounterRate:er, dreadGainMult:drm,
+    hp:40, maxHp:40, atk:8, def:4, spd:10,
+    pages:{ink:0,memory:0,null_page:0,binding:0,index:0},
+    scraps:100, medication:3,
+    reputation:{kennel:0,order:0,null:0},
+    dread:0, lingerCounter:0,
+    hasFang:true, fangShattered:false,
+    masks:{}, equippedMask:null, maskFragments:0,
+    gun:null, shells:0,
+    party:[],
+    room:null, rooms:{}, depth:0,
+    lingerActive:false, lingerRoom:null,
+    bossDefeated:false,
+    phase:"play",
+    _pendingConfirm:null, _subMenu:null
+  };
+
+  // Starter mask
+  const starter = { name:"Ink-Scared Pup", arcana:"unwritten",
+    stats:{hp:0,atk:0,def:0,spd:0}, skills:[], passives:[], level:1, xp:0 };
+  G.masks["Ink-Scared Pup"] = starter;
+  G.equippedMask = starter;
+
+  // Party
+  if (faction==="kennel") setupKennel();
+  else if (faction==="order") setupOrder();
+  else setupNull();
+
+  buildInitialCluster();
+}
+
+function makePartyMember(id,name,role,hp,atk,def,spd,faction,skills,limitName,limitDesc){
+  return {id,name,role,hp,maxHp:hp,atk,def,spd,faction,skills,limitName,limitDesc,limitReady:false,statusEffects:{}};
+}
+
+function setupKennel(){
+  G.party=[
+    makePartyMember("leto","Pup-Scribe Leto","support",32,7,4,10,"kennel",
+      ["pack_howl","scribe_mark"],"Pack Unleashed","All Kennel members attack in a flurry."),
+    makePartyMember("mira","Fang-Runner Mira","dps",30,9,3,14,"kennel",
+      ["fang_rush","tail_feint"],"Blood-Remembered Charge","Mira dives through the enemy line.")
+  ];
+}
+function setupOrder(){
+  G.party=[
+    makePartyMember("confessor","Order Confessor","debuffer",30,7,4,10,"order",
+      ["balance_ledger","ink_seal"],"Final Accounting","Massive damage based on Pages collected."),
+    makePartyMember("knight","Ledger-Knight","tank",38,8,6,9,"order",
+      ["guard_entry","reckoning_strike"],"Closed Book","Shields party and counters attacks.")
+  ];
+}
+function setupNull(){
+  G.party=[
+    makePartyMember("nurse","Null Nurse","support",30,6,4,9,"null",
+      ["erase_emotion","quiet_pulse"],"Stillborn Peace","Resets enemy actions."),
+    makePartyMember("echo_pup","Echo-Pup","mage",26,9,3,12,"null",
+      ["unmake","echo_burst"],"Unwritten Howl","A howl that tears at the edges of reality.")
+  ];
+}
+
+// ============================================================
+// WORLD BUILDING
+// ============================================================
+function buildInitialCluster(){
+  const entry  = makeRoom("Entry Stacks","Shelves rise on either side, heavy with unwritten lives.","Some of these spines have your pawprints pressed into the dust.","stacks");
+  const hub    = makeRoom("Central Catalog","A circular desk sits under a dead chandelier.","Drawers hang open, cards scattered like fallen leaves.","stacks");
+  const nook   = makeRoom("Quiet Nook","A small alcove where the silence feels curated.","Someone arranged cushions here for dogs who needed to stop insisting on themselves.","stacks");
+  const market = makeRoom("Ink Trader's Alcove","A folding table covered in stoppered bottles and loose pages.","The dog behind the table doesn't look up when you enter.","stacks");
+  market.npc = { name:"Ink Merchant", lines:["Pages for scraps, scraps for pages.","I don't ask where things came from.","The Lingerer doesn't bother traders. Professional courtesy.","Mask fragments? I'll buy those. Ten scraps each."] };
+
+  entry.exits.north=hub.id; hub.exits.south=entry.id;
+  hub.exits.east=nook.id;   nook.exits.west=hub.id;
+  hub.exits.west=market.id; market.exits.east=hub.id;
+
+  storeRoom(entry); storeRoom(hub); storeRoom(nook); storeRoom(market);
+  G.room = entry.id;
+}
+
+function makeRoom(name,desc,lore,biome){
+  return {id:uid(),name,desc,lore,biome,exits:{},enemies:[],npc:null,shelves:genShelves(biome),visited:false,flags:{}};
+}
+function genShelves(biome){
+  const base=["find_page","trigger_lore","trigger_enemy","trigger_null_whisper","find_scrap","find_mask_fragment"];
+  const count = ri(1,3);
+  const out=[];
+  for(let i=0;i<count;i++) out.push(pick(base));
+  return out;
+}
+function storeRoom(r){ G.rooms[r.id]=r; }
+function curRoom(){ return G.rooms[G.room]; }
+
+function generateRoom(depth){
+  const biome = pickBiome();
+  const r = makeRoom(pick(ROOM_NAMES), pick(ROOM_DESCS), Math.random()<0.6?pick(ROOM_LORE):null, biome);
+  // Exits
+  const dirs=["north","south","east","west"];
+  const numExits=ri(1,3);
+  for(let i=0;i<numExits;i++){
+    const d=pick(dirs);
+    if(!r.exits[d]) r.exits[d]=null; // will be generated on traverse
+  }
+  // Enemies
+  if(!G.bossDefeated && Math.random()<G.encounterRate){
+    r.enemies=[genEnemy()];
+  }
+  // NPC
+  if(Math.random()<0.2) r.npc=genNPC();
+  storeRoom(r);
+  return r;
+}
+
+function pickBiome(){
+  const w={"stacks":40,"archivist_loop":12,"null_wing":13,"binding_floor":13,"fang_vault":5,"margin_passages":10,"errata_chamber":7};
+  let total=0; for(const k in w) total+=w[k];
+  let r=Math.random()*total;
+  for(const k in w){ r-=w[k]; if(r<=0) return k; }
+  return "stacks";
+}
+
+function genEnemy(){
+  const e=pick(ENEMY_POOL);
+  return {name:e.name,hp:ri(e.hp[0],e.hp[1]),maxHp:0,atk:ri(e.atk[0],e.atk[1]),def:ri(e.def[0],e.def[1]),spd:e.spd,tags:e.tags,alive:true};
+}
+
+function genNPC(){
+  const types=[
+    {name:"Kennel Scribe",    lines:["The Pack remembers every name in here.","We scratch marks so things don't get lost.","Stay close to someone you trust."]},
+    {name:"Order Archivist",  lines:["Everything is catalogued. Even you.","The ledger has an entry for this moment.","Precision keeps the dark out."]},
+    {name:"Null Attendant",   lines:[pick(NULL_DIALOG),pick(NULL_DIALOG)]},
+    {name:"Lost Dog",         lines:["I've been in here since the shelves moved.","I stopped counting rooms a long time ago.","Do you smell that? The Lingerer is close."]},
+    {name:"Wandering Scribe", lines:["I write what I see. I've stopped looking at some things.","The shelves are alive. You can tell by the warmth."]},
+    {name:"Ink Merchant",     lines:["Pages for scraps, scraps for pages.","I don't ask where things came from."]},
+    {name:"Fang Remnant",     lines:["The Fang passed through here. I could smell it.","Every shard remembered something different.","The real one glows when the Library shivers."]},
+    {name:"Collapsed Reader", lines:["I fell asleep in the margins.","The footnotes aren't finished yet.","Do you hear it? The appendix. It's been breathing."]}
+  ];
+  return pick(types);
+}
+
+// ============================================================
+// OUTPUT
+// ============================================================
+const out=document.getElementById("output");
+function print(text,cls){
+  const lines=String(text).split("\n");
+  lines.forEach(l=>{
+    const d=document.createElement("div");
+    d.className="line"+(cls?" "+cls:"");
+    d.textContent=l;
+    out.appendChild(d);
+  });
+  out.scrollTop=out.scrollHeight;
+}
+function blank(){print("");}
+function sep(ch,n){print((ch||"─").repeat(n||55),"dim");}
+
+function updateStatus(){
+  if(!G)return;
+  document.getElementById("sb-name").textContent=G.name;
+  const hpColor=G.hp<G.maxHp*0.3?"var(--red)":G.hp<G.maxHp*0.6?"var(--yellow)":"var(--green)";
+  document.getElementById("sb-hp").innerHTML=`HP <span style="color:${hpColor}">${G.hp}/${G.maxHp}</span>`;
+  document.getElementById("sb-faction").innerHTML=`Faction: <span>${G.faction||"None"}</span>`;
+  const dc=G.dread>=70?"var(--red)":G.dread>=40?"var(--yellow)":"var(--fg)";
+  document.getElementById("sb-dread").innerHTML=`Dread: <span style="color:${dc}">${G.dread}/100</span>`;
+  const m=G.equippedMask;
+  document.getElementById("sb-mask").innerHTML=m?`Mask: <span>${m.name}</span>`:`Mask: <span>None</span>`;
+  document.getElementById("sb-gun").innerHTML=G.gun?`Gun: <span>${G.gun.name}[${G.shells}sh]</span>`:`Gun: <span>None</span>`;
+  document.getElementById("sb-scraps").innerHTML=`Scraps: <span>${G.scraps}</span>`;
+}
+
+// ============================================================
+// TITLE / SETUP
+// ============================================================
+function startTitle(){
+  setupPhase="title"; out.innerHTML="";
+  print(`
+██████╗  █████╗ ██████╗ ██╗  ██╗
+██╔══██╗██╔══██╗██╔══██╗██║ ██╔╝
+██║  ██║███████║██████╔╝█████╔╝
+██║  ██║██╔══██║██╔══██╗██╔═██╗
+██████╔╝██║  ██║██║  ██║██║  ██╗
+╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝`,"accent");
+  blank();
+  print("D A R K   F L O O F   I I","bold");
+  print("T H E   S T A C K S   B E N E A T H","dim");
+  blank();
+  print("The hospital was only the first structure.","dim");
+  print("Beneath it lies the Infinite Library.","dim");
+  blank();
+  print("1. Enter the Stacks");
+  print("2. Description");
+  print("3. Difficulty  ["+pendingDiff+"]");
+  print("4. Quit");
+}
+
+function handleSetup(raw){
+  const c=raw.trim().toLowerCase();
+  if(setupPhase==="title"){
+    if(c==="1"){ showWarning(); }
+    else if(c==="2"){ showDesc(); }
+    else if(c==="3"){ setupPhase="difficulty"; blank(); print("1. Gentle  2. Normal  3. Cruel"); }
+    else if(c==="4"){ print("The Stacks will wait.","dim"); }
+  } else if(setupPhase==="warning"){
+    if(c==="quit"||c==="exit"){ print("Take care of yourself. The Stacks will wait.","dim"); setupPhase="title"; }
+    else if(c==="continue"){ askName(); }
+    else print("Type CONTINUE to proceed.","dim");
+  } else if(setupPhase==="about"){
+    startTitle();
+  } else if(setupPhase==="difficulty"){
+    if(c==="1") pendingDiff="gentle";
+    else if(c==="3") pendingDiff="cruel";
+    else pendingDiff="normal";
+    print("Difficulty: "+pendingDiff,"accent");
+    startTitle();
+  } else if(setupPhase==="name"){
+    const name=raw.trim()||"Floof";
+    G._pendingName=name;
+    setupPhase="faction";
+    blank();
+    print("Three presences notice you as you step between the shelves.");
+    print("They do not arrive. They were already here.");
+    blank();
+    print("1. The Kennel — pack, instinct, loyalty.");
+    print("2. The Order  — ledgers, precision, control.");
+    print("3. The Null   — quiet, erasure, closure.");
+  } else if(setupPhase==="faction"){
+    const name=G._pendingName||"Floof";
+    let faction="null";
+    if(c==="1") faction="kennel";
+    else if(c==="2") faction="order";
+    newGame(name, faction, pendingDiff);
+    blank();
+    print(`Your name echoes softly between the shelves: ${G.name}.`,"dim");
+    print(`The ${G.faction.charAt(0).toUpperCase()+G.faction.slice(1)} mark you as one of theirs.`,"dim");
+    blank();
+    setupPhase="play";
+    showStatusFull();
+    describeRoom();
+    updateStatus();
+  } else if(setupPhase==="done"){
+    G=null; startTitle();
+  }
+}
+
+function showWarning(){
+  setupPhase="warning"; blank(); sep("═");
+  print("  CONTENT WARNING","yellow"); sep("═"); blank();
+  print("  Dark Floof II contains themes that some players may find distressing:");
+  blank();
+  print("   - Nihilism and philosophical erasure of self");
+  print("   - Dialogue that frames ending existence as relief");
+  print("   - References to hospitals and medication");
+  print("   - Horror elements and psychological dread");
+  blank();
+  print("  The Null faction voices perspectives the game does not endorse.");
+  blank();
+  print("  Crisis (US): 988  |  Text HOME to 741741  |  findahelpline.com","dim");
+  blank(); sep("═"); blank();
+  print("  Type CONTINUE to proceed, or QUIT to exit.");
+}
+
+function showDesc(){
+  setupPhase="about"; blank();
+  print("Dogs listened. Humans didn't.");
+  print("Beneath the hospital, the Infinite Library waits.");
+  print("Every book is a life that almost happened.");
+  print("Every shelf is a timeline that was abandoned.");
+  blank();
+  print("You survived the hospital. The Fang chose you.");
+  print("Now the pages want to correct that mistake.");
+  blank();
+  print("(type anything to return)","dim");
+}
+
+function askName(){
+  setupPhase="name"; blank();
+  print("You step between the shelves.");
+  print("The Library notices you.");
+  blank();
+  print("Your name?");
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function showStatusFull(){
+  if(!G)return;
+  blank(); sep();
+  print(`[${G.name} | Faction: ${G.faction||"None"}]`,"accent");
+  print(`HP: ${G.hp}/${G.maxHp} | Scraps: ${G.scraps} | Fragments: ${G.maskFragments}`,G.hp<G.maxHp*0.3?"red":"");
+  const pages=Object.entries(G.pages).map(([k,v])=>`${k}:${v}`).join(" ");
+  print(`Pages: ${pages}`);
+  print(`Dread: ${G.dread} | Linger: ${G.lingerCounter}`,G.dread>60?"yellow":"");
+  print(`Fang: ${G.fangShattered?"Shattered":G.hasFang?"Intact":"Missing"}`);
+  print(G.gun?`Gun: ${G.gun.name} | Shells: ${G.shells}`:`Gun: None | Shells: ${G.shells}`);
+  if(G.equippedMask){
+    const m=G.equippedMask;
+    print(`Mask: ${m.name} (${m.arcana}, Lv ${m.level})`);
+  }
+  sep();
+}
+
+function describeRoom(forceLore){
+  if(!G)return;
+  const r=curRoom(); if(!r)return;
+  blank();
+  print(`[${r.biome.replace(/_/g," ")}]`,"dim");
+  print(r.name,"bold");
+  print(r.desc);
+  if(r.lore&&(!r.visited||forceLore)) print(r.lore,"dim");
+  r.visited=true;
+  dreadDesc();
+  blank();
+  const alive=r.enemies.filter(e=>e.hp>0);
+  if(alive.length){
+    print(`Enemies: ${alive.map(e=>e.name).join(", ")}`,"yellow");
+    print("(Type FIGHT to engage.)","dim");
+    if(!r.flags.combatTriggered){ r.flags.combatTriggered=true; startBattle(alive); return; }
+  } else {
+    print("(The way forward is clear. Explore with n/s/e/w.)","dim");
+  }
+  if(r.npc) print(`NPC: ${r.npc.name}`,"accent");
+  const exitList=Object.keys(r.exits).join(", ");
+  print(`Exits: ${exitList||"none apparent"}`,"dim");
+}
+
+function dreadDesc(){
+  const d=G.dread;
+  if(d>=20&&d<40)  print("(The darkness presses closer than before.)", "dim");
+  else if(d>=40&&d<60) print("(Your fur stands on end. The Lingerer is awake.)", "yellow");
+  else if(d>=60&&d<80) print("(The shelves breathe. Something is very close.)", "yellow");
+  else if(d>=80)        print("(The Lingerer is here. You can feel it.)", "red");
+}
+
+function handlePlay(raw){
+  if(!G||G.phase==="done") return;
+  const c=raw.trim().toLowerCase();
+
+  if(G._pendingConfirm){
+    const pc=G._pendingConfirm; G._pendingConfirm=null;
+    (c==="y"||c==="yes")?pc.yes():pc.no();
+    updateStatus(); return;
+  }
+  if(G._subMenu){ handleSubMenu(raw); return; }
+  if(G._inCombat){ handleCombatInput(raw); return; }
+
+  switch(c){
+    case "look": case "l": describeRoom(true); break;
+    case "n": case "north": move("north"); break;
+    case "s": case "south": move("south"); break;
+    case "e": case "east":  move("east");  break;
+    case "w": case "west":  move("west");  break;
+    case "fight": case "attack": case "battle": fightRoom(); break;
+    case "talk": talkNPC(); break;
+    case "join": joinFaction(); break;
+    case "search": case "shelves": interactShelves(); break;
+    case "hide": hideFromLinger(); break;
+    case "run": case "escape": startChase(); break;
+    case "status": showStatusFull(); break;
+    case "mask": maskMenu(); break;
+    case "fuse": fuseMenu(); break;
+    case "forge": forgeMask(); break;
+    case "gun": gunMenu(); break;
+    case "help": showHelp(); break;
+    case "quit": case "exit":
+      blank(); print("The Stacks grow quiet.","dim");
+      G=null; setupPhase="title"; startTitle(); return;
+    default:
+      print("The library ignores that command.","dim");
+  }
+  updateStatus();
+  // Linger tick
+  if(G&&!G._inCombat) tickLinger();
+}
+
+function showHelp(){
+  blank(); print("=== COMMANDS ===","accent");
+  print("look/l        — describe room");
+  print("n/s/e/w       — move");
+  print("fight         — fight enemies here");
+  print("talk          — speak to NPC");
+  print("join          — join a faction");
+  print("search/shelves— search the shelves");
+  print("hide          — hide from the Lingerer");
+  print("run/escape    — chase sequence");
+  print("status        — detailed status");
+  print("mask          — manage Soul-Masks");
+  print("fuse          — fuse two masks");
+  print("forge         — forge mask from 5 fragments");
+  print("gun           — manage gun");
+  print("help          — this list");
+  print("quit          — leave the Stacks");
+}
+
+// ============================================================
+// MOVEMENT
+// ============================================================
+function move(dir){
+  const r=curRoom();
+  if(r.enemies.some(e=>e.hp>0)){ print("Something blocks the way.","dim"); return; }
+  let destId=r.exits[dir];
+  if(destId===undefined){ print("The shelves close that way off.","dim"); return; }
+  if(!destId){
+    // Generate new room
+    G.depth++;
+    if(G.depth>=20&&!G.bossDefeated){
+      const pr=buildProphetRoom();
+      r.exits[dir]=pr.id;
+      destId=pr.id;
+    } else {
+      const nr=generateRoom(G.depth);
+      r.exits[dir]=nr.id;
+      nr.exits[oppositeDir(dir)]=r.id;
+      destId=nr.id;
+    }
+  }
+  G.room=destId;
+  G.dread=clamp(G.dread+ri(0,2),0,100);
+  lingerMove();
+  showStatusFull();
+  describeRoom();
+  checkDreadEnd();
+  if(G&&G.room===destId&&G.bossDefeated===false){
+    const nr=curRoom();
+    if(nr.flags.isProphet&&!G.bossDefeated) startProphetBattle();
+  }
+}
+
+function oppositeDir(d){
+  return {north:"south",south:"north",east:"west",west:"east"}[d]||"north";
+}
+
+function buildProphetRoom(){
+  const r=makeRoom("The Final Stacks",
+    "A vast circular chamber. Pages drift like snow. Shelves spiral infinitely upward.",
+    "The Prophet was always going to be here. This moment was written before you were.",
+    "fang_vault");
+  r.flags.isProphet=true;
+  r.enemies=[];
+  storeRoom(r);
+  return r;
+}
+
+// ============================================================
+// LINGER
+// ============================================================
+function tickLinger(){
+  G.lingerCounter++;
+  if(G.lingerCounter>6&&!G.lingerActive){
+    G.lingerActive=true;
+    G.lingerRoom=G.room;
+    blank(); print("Somewhere between the shelves, something begins to walk.","dim");
+  }
+  if(G.lingerActive) moveLinger();
+}
+
+function moveLinger(){
+  if(G.lingerRoom===G.room){
+    const dread=Math.round(40*G.dreadGainMult);
+    G.dread=clamp(G.dread+dread,0,100);
+    blank(); print("A tall shape stands behind you.","red");
+    print("Cold air. Cold hands. The Lingerer has found you.","red");
+    checkDreadEnd();
+  }
+}
+
+function hideFromLinger(){
+  if(!G.lingerActive){ print("The Lingerer isn't here yet.","dim"); return; }
+  if(Math.random()<0.5){
+    blank(); print("You press yourself into a gap between shelves.","dim");
+    print("The footsteps pass. For now.","dim");
+    G.dread=clamp(G.dread-15,0,100);
+    G.lingerRoom=null;
+    G.lingerActive=false;
+    G.lingerCounter=0;
+  } else {
+    blank(); print("You stumble. The Lingerer hears.","red");
+    G.dread=clamp(G.dread+20,0,100);
+    checkDreadEnd();
+  }
+}
+
+function startChase(){
+  if(!G.lingerActive){ print("Nothing is chasing you. Yet.","dim"); return; }
+  blank(); print("=== CHASE ===","yellow");
+  G._chase={steps:5,step:0};
+  G._subMenu="chase";
+  print("1. Run  2. Hide  3. Throw a Page");
+}
+
+function handleSubMenu(raw){
+  const c=raw.trim().toLowerCase();
+  if(G._subMenu==="chase"){ handleChase(c); return; }
+  if(G._subMenu==="mask"){ handleMaskSub(c); return; }
+  if(G._subMenu==="fuse_a"){ handleFuseA(c); return; }
+  if(G._subMenu==="fuse_b"){ handleFuseB(c); return; }
+  if(G._subMenu==="gun"){ handleGunSub(c); return; }
+  if(G._subMenu==="target"){ handleTargetSub(raw); return; }
+  if(G._subMenu==="page"){ handlePageSub(raw); return; }
+  if(G._subMenu==="item"){ handleItemSub(raw); return; }
+}
+
+function handleChase(c){
+  G._chase.step++;
+  if(c==="1"){
+    if(Math.random()<0.3){ print("You trip — +10 dread.","red"); G.dread=clamp(G.dread+10,0,100); }
+    else { print("You gain distance.","green"); G.dread=clamp(G.dread-5,0,100); }
+  } else if(c==="2"){
+    if(Math.random()<0.5){ print("Hidden successfully.","green"); G.dread=clamp(G.dread-20,0,100); G._chase.step=G._chase.steps; }
+    else { print("It heard you.","red"); G.dread=clamp(G.dread+15,0,100); }
+  } else if(c==="3"){
+    const pages=Object.values(G.pages).reduce((a,b)=>a+b,0);
+    if(pages>0){
+      const k=Object.keys(G.pages).find(k=>G.pages[k]>0);
+      G.pages[k]--;
+      print("The Lingerer pauses. +15 breathing room.","green");
+      G.dread=clamp(G.dread-15,0,100);
+    } else { print("No pages to throw.","dim"); G.dread=clamp(G.dread+5,0,100); }
+  }
+  checkDreadEnd();
+  if(!G) return;
+  if(G._chase.step>=G._chase.steps){
+    G._subMenu=null; G._chase=null; G.lingerActive=false; G.lingerRoom=null;
+    blank(); print("You slip away. The footsteps fade.","green");
+    G.dread=clamp(G.dread-30,0,100);
+  } else {
+    print(`Chase step ${G._chase.step}/${G._chase.steps} — 1. Run  2. Hide  3. Throw a Page`,"accent");
+  }
+  updateStatus();
+}
+
+function checkDreadEnd(){
+  if(!G) return;
+  if(G.dread>=100){
+    blank(); print("You freeze. A cold hand rests on your shoulder.","red");
+    print("The Lingerer claims what dread could not protect.","red");
+    G.phase="dead"; G.hp=0;
+    blank(); print("Your page ends here."); print("The Stacks grow quiet.");
+    setupPhase="done"; G=null;
+    blank(); print("(type anything to return)","dim");
+  }
+}
+
+// ============================================================
+// SHELVES
+// ============================================================
+function interactShelves(){
+  const r=curRoom();
+  if(!r.shelves.length){ print("These shelves are bare.","dim"); return; }
+  G.lingerCounter+=2;
+  print("You inspect the shelves…","dim");
+
+  if(G.equippedMask&&G.equippedMask.arcana==="unwritten"&&Math.random()<0.25){
+    r.shelves.push("find_page"); print("Your Mask notices a shelf that wasn't there before.","accent");
+  }
+
+  const action=pick(r.shelves);
+  switch(action){
+    case "find_page":
+      const pts=["ink","memory","null_page","binding","index"];
+      const pt=pick(pts); G.pages[pt]++;
+      print(`You find a ${pt.replace("_"," ")} page.`,"green");
+      if(Math.random()<0.05) grantRandomMask("the shelves");
+      break;
+    case "trigger_lore":
+      print(pick(ROOM_LORE),"dim"); break;
+    case "trigger_enemy":
+      blank(); print("A book snaps open — something crawls out!","yellow");
+      startBattle([genEnemy()]); break;
+    case "trigger_null_whisper":
+      blank(); print(pick(NULL_DIALOG),"purple");
+      G.reputation.null+=1;
+      G.dread=clamp(G.dread+Math.round(3*G.dreadGainMult),0,100); break;
+    case "find_scrap":
+      const g=ri(5,15); G.scraps+=g;
+      print(`You find ${g} scraps.`,"green");
+      if(Math.random()<0.30){ const sh=ri(2,5); G.shells+=sh; print(`Also ${sh} ink shells.`,"green"); }
+      if(Math.random()<0.06&&!G.gun){
+        const gun=pick(INK_GUNS);
+        print(`Behind a false spine: ${gun.name}.`); print(gun.desc,"dim");
+        print("Equip it? (y/n)","accent");
+        G._pendingConfirm={yes:()=>{G.gun=gun;print(`Equipped ${gun.name}.`,"green");},no:()=>print("Left it.","dim")};
+      }
+      break;
+    case "find_mask_fragment":
+      G.maskFragments++;
+      print(`A mask fragment. (${G.maskFragments}/5)`,"green");
+      if(G.maskFragments>=5) forgeMask(true);
+      break;
+  }
+  updateStatus();
+}
+
+// ============================================================
+// NPC
+// ============================================================
+function talkNPC(){
+  const r=curRoom();
+  if(!r.npc){ print("No one here.","dim"); return; }
+  blank(); print(`${r.npc.name}:`,"accent");
+  print(`"${pick(r.npc.lines)}"`);
+  if(r.npc.name.includes("Merchant")||r.npc.name.includes("Trader")) merchantMenu(r.npc);
+}
+
+function merchantMenu(npc){
+  blank(); print(`${npc.name} lays out their wares. (Scraps: ${G.scraps})`,"dim");
+  print("1. Bandage (+1) — 20 scraps");
+  print("2. Ink shell (+3) — 25 scraps");
+  print("3. Page (random) — 15 scraps");
+  print("4. Leave");
+  G._subMenu="merchant_buy"; G._merchantNpc=npc;
+}
+// merchant handled via sub (reuse target sub for simplicity)
+
+// ============================================================
+// FACTION JOIN
+// ============================================================
+function joinFaction(){
+  blank(); print("=== FACTIONS ===","accent");
+  print(`Your rep: Kennel ${G.reputation.kennel} | Order ${G.reputation.order} | Null ${G.reputation.null}`);
+  print("Type kennel / order / null to join (need 3+ rep).");
+  G._subMenu="join_faction";
+}
+function handleTargetSub(raw){
+  const c=raw.trim().toLowerCase();
+  if(G._subMenu==="join_faction"){
+    G._subMenu=null;
+    const facs=["kennel","order","null"];
+    if(facs.includes(c)){
+      if(G.reputation[c]>=3||true){ // allow joining for playability
+        G.faction=c;
+        print(`You align with the ${c.charAt(0).toUpperCase()+c.slice(1)}.`,"accent");
+      } else print(`Need 3 rep with ${c} to join.`,"dim");
+    } else print("Invalid faction.","dim");
+  } else if(G._subMenu==="target"){
+    G._subMenu=null;
+    const idx=parseInt(c)-1;
+    const alive=G._combatEnemies.filter(e=>e.hp>0);
+    G._targetResult=alive[idx]||alive[0];
+    continueAfterTarget();
+  } else if(G._subMenu==="merchant_buy"){
+    G._subMenu=null;
+    if(c==="1"){if(G.scraps>=20){G.scraps-=20;G.medication++;print("+1 bandage/medication.","green");}else print("Not enough scraps.","dim");}
+    else if(c==="2"){if(G.scraps>=25){G.scraps-=25;G.shells+=3;print("+3 shells.","green");}else print("Not enough.","dim");}
+    else if(c==="3"){if(G.scraps>=15){G.scraps-=15;const t=pick(["ink","memory","null_page","binding","index"]);G.pages[t]++;print(`+1 ${t.replace("_"," ")} page.`,"green");}else print("Not enough.","dim");}
+    else print("Left.","dim");
+  }
+  updateStatus();
+}
+
+// ============================================================
+// MASK SYSTEM
+// ============================================================
+function grantRandomMask(source){
+  const owned=Object.keys(G.masks);
+  const avail=MASK_TEMPLATES.filter(m=>!owned.includes(m.name));
+  if(!avail.length){ print("No new masks to discover.","dim"); return; }
+  const m=pick(avail);
+  const newMask={...m,level:1,xp:0};
+  G.masks[m.name]=newMask;
+  blank(); print(`A new self presses against your fur.`,"accent");
+  print(`Soul-Mask gained: ${m.name} (${m.arcana})`,"green");
+  if(source) print(`(From: ${source})`,"dim");
+}
+
+function forgeMask(auto){
+  if(G.maskFragments<5&&!auto){ print(`Need 5 fragments. Have ${G.maskFragments}.`,"dim"); return; }
+  if(G.maskFragments>=5){ G.maskFragments-=5; grantRandomMask("forged fragments"); print("The fragments fuse into something new.","accent"); }
+  else print(`Need 5 fragments. Have ${G.maskFragments}.`,"dim");
+}
+
+function maskMenu(){
+  blank(); print("=== SOUL-MASKS ===","accent");
+  const masks=Object.values(G.masks);
+  if(!masks.length){ print("No masks.","dim"); return; }
+  masks.forEach((m,i)=>{
+    const eq=(m===G.equippedMask||m.name===G.equippedMask?.name)?"*":" ";
+    print(`${i+1}.${eq} ${m.name} (${m.arcana}, Lv ${m.level})`);
+  });
+  print("Enter number to equip, or press Enter to cancel.","dim");
+  G._subMenu="mask";
+}
+function handleMaskSub(c){
+  G._subMenu=null;
+  if(!c.trim()){ return; }
+  const masks=Object.values(G.masks);
+  const idx=parseInt(c)-1;
+  if(masks[idx]){ G.equippedMask=masks[idx]; print(`${masks[idx].name} settles over your fur.`,"green"); }
+  else print("Invalid.","dim");
+  updateStatus();
+}
+
+function fuseMenu(){
+  const masks=Object.values(G.masks);
+  if(masks.length<2){ print("Need at least two masks to fuse.","dim"); return; }
+  blank(); print("=== FUSION ===","accent");
+  masks.forEach((m,i)=>print(`${i+1}. ${m.name} (${m.arcana}, Lv ${m.level})`));
+  print("First mask number:","dim");
+  G._subMenu="fuse_a"; G._fusePool=masks;
+}
+function handleFuseA(c){
+  const idx=parseInt(c)-1;
+  G._fuseA=G._fusePool[idx];
+  if(!G._fuseA){ print("Invalid.","dim"); G._subMenu=null; return; }
+  print("Second mask number:","dim");
+  G._subMenu="fuse_b";
+}
+function handleFuseB(c){
+  G._subMenu=null;
+  const idx=parseInt(c)-1;
+  const b=G._fusePool[idx];
+  if(!b||b===G._fuseA){ print("Invalid.","dim"); return; }
+  const result=fuseMasks(G._fuseA,b);
+  print(`Fusion result: ${result.name} (${result.arcana})`, "accent");
+  print("Accept? (y/n)","dim");
+  G._pendingConfirm={
+    yes:()=>{
+      delete G.masks[G._fuseA.name]; delete G.masks[b.name];
+      G.masks[result.name]=result; G.equippedMask=result;
+      print(`${result.name} is born.`,"green");
+    },
+    no:()=>print("Fusion cancelled.","dim")
+  };
+}
+function fuseMasks(a,b){
+  const arcMap={
+    "kennel+order":"fang","kennel+null":"unwritten","order+null":"unwritten",
+    "fang+null":"unwritten","fang+kennel":"kennel","fang+order":"order"
+  };
+  const pair=[a.arcana,b.arcana].sort().join("+");
+  const arcana=arcMap[pair]||pick([a.arcana,b.arcana]);
+  const st={
+    hp:Math.round((a.stats.hp+b.stats.hp)/2),
+    atk:Math.round((a.stats.atk+b.stats.atk)/2),
+    def:Math.round((a.stats.def+b.stats.def)/2),
+    spd:Math.round((a.stats.spd+b.stats.spd)/2)
+  };
+  const skills=[...new Set([...a.skills,...b.skills])].slice(0,3);
+  const passives=[...new Set([...a.passives,...b.passives])].slice(0,2);
+  return {name:`${a.name.split(" ")[0]}-${b.name.split(" ")[0]} Echo`,arcana,stats:st,skills,passives,level:1,xp:0};
+}
+
+// ============================================================
+// GUN MENU
+// ============================================================
+function gunMenu(){
+  blank(); print("=== GUN ===","accent");
+  if(G.gun){
+    print(`Equipped: ${G.gun.name}`);
+    print(G.gun.desc,"dim");
+    print(`Damage: ${G.gun.dmgMin}-${G.gun.dmgMax} | Shells/shot: ${G.gun.shells}`);
+    print(`Ink Shells: ${G.shells}`);
+    blank();
+    INK_GUNS.forEach((g,i)=>print(`${i+1}. ${g.name}`));
+    print(`${INK_GUNS.length+1}. Unequip`);
+    print("Enter to cancel","dim");
+    G._subMenu="gun";
+  } else {
+    print("No gun equipped. Find them in shelves or from enemies.","dim");
+    print(`Ink Shells: ${G.shells}`);
+    INK_GUNS.forEach(g=>print(`  ${g.name} — ${g.desc}`,"dim"));
+  }
+}
+function handleGunSub(c){
+  G._subMenu=null;
+  if(!c.trim()) return;
+  const idx=parseInt(c)-1;
+  if(idx===INK_GUNS.length){ G.gun=null; print("Gun unequipped.","dim"); }
+  else if(INK_GUNS[idx]){ G.gun=INK_GUNS[idx]; print(`You equip the ${G.gun.name}.`,"green"); }
+  else print("Invalid.","dim");
+  updateStatus();
+}
+
+// ============================================================
+// COMBAT
+// ============================================================
+function fightRoom(){
+  const r=curRoom();
+  const alive=r.enemies.filter(e=>e.hp>0);
+  if(!alive.length){ print("Nothing to fight here.","dim"); return; }
+  startBattle(alive);
+}
+
+let _combatResolve=null;
+function startBattle(enemies){
+  enemies.forEach(e=>{ if(!e.maxHp) e.maxHp=e.hp; });
+  G._inCombat=true; G._combatEnemies=enemies;
+  G._combatRoster=buildRoster(enemies);
+  G._atb={}; G._combatRoster.forEach(c=>G._atb[c.id]=0);
+  G._combatPhase=1; G._awaitingAction=false;
+  blank(); sep("─");
+  print(`Enemies: ${enemies.map(e=>e.name).join(", ")}`,"yellow");
+  sep("─");
+  showCombatStatus();
+  advanceCombat();
+}
+
+function buildRoster(enemies){
+  const playerActor={
+    id:"player", name:G.name, role:"leader",
+    hp:G.hp, maxHp:G.maxHp,
+    atk:G.atk+(G.equippedMask?G.equippedMask.stats.atk:0),
+    def:G.def+(G.equippedMask?G.equippedMask.stats.def:0),
+    spd:G.spd+(G.equippedMask?G.equippedMask.stats.spd:0),
+    skills:["basic_attack","guard","use_page","use_item"],
+    faction:G.faction, limitReady:false,
+    limitName:"Erase: Self", limitDesc:"A final act of sealing.",
+    statusEffects:{}
+  };
+  return [playerActor, ...G.party.map(p=>({...p,id:p.id,hp:p.hp,maxHp:p.maxHp})), ...enemies];
+}
+
+function showCombatStatus(){
+  blank(); print("── PARTY ──","dim");
+  G._combatRoster.filter(c=>c.role&&c.hp>0).forEach(c=>{
+    const lim=c.limitReady?" [LIMIT]":"";
+    print(`${c.name}: HP ${c.hp}/${c.maxHp} | ATK ${c.atk||c.def}${lim}`,c.hp<c.maxHp*0.3?"red":"");
+  });
+  print("── ENEMIES ──","dim");
+  G._combatEnemies.filter(e=>e.hp>0).forEach(e=>{
+    print(`${e.name}: HP ${e.hp}/${e.maxHp}`);
+  });
+  print(`Dread: ${G.dread} | Shells: ${G.shells}`,"dim");
+}
+
+function advanceCombat(){
+  if(!G._inCombat) return;
+  checkLimitBreaks();
+  // ATB tick
+  const alive=G._combatRoster.filter(c=>c.hp>0);
+  alive.forEach(c=>G._atb[c.id]=(G._atb[c.id]||0)+(c.spd||c.speed||9));
+  const actor=alive.find(c=>G._atb[c.id]>=100);
+  if(!actor){ advanceCombat(); return; }
+  G._atb[actor.id]=0;
+  if(actor.role){ // party member
+    G._activeActor=actor;
+    promptPlayerAction(actor);
+  } else {
+    enemyCombatTurn(actor);
+    checkCombatEnd();
+    if(G._inCombat) advanceCombat();
+  }
+}
+
+function checkLimitBreaks(){
+  G._combatRoster.filter(c=>c.role&&!c.limitReady).forEach(c=>{
+    const thresh=G.equippedMask?.passives?.includes("mask_limit_charge")?0.5:0.3;
+    if(c.hp<c.maxHp*thresh||G.dread>60){
+      c.limitReady=true;
+      print(`${c.name}'s fur bristles — LIMIT ready!`,"yellow");
+    }
+  });
+}
+
+function promptPlayerAction(actor){
+  blank(); print(`${actor.name}'s turn.`,"accent");
+  const gunLabel=G.gun?`Shoot[${G.shells}sh]`:"Shoot[no gun]";
+  print(`1.Attack  2.Skill  3.Page  4.Item  5.Guard  6.${gunLabel}${actor.limitReady?"  7.Limit":""}`);
+}
+
+function handleCombatInput(raw){
+  const c=raw.trim().toLowerCase();
+  const actor=G._activeActor;
+  if(!actor) return;
+
+  if(G._subMenu){ handleSubMenu(raw); return; }
+
+  if(c==="fkill"){ G._combatEnemies.forEach(e=>e.hp=0); print(".","dim"); checkCombatEnd(); return; }
+
+  switch(c){
+    case "1":
+      if(G._combatEnemies.filter(e=>e.hp>0).length>1){ pickTarget(actor,"attack"); return; }
+      const t=G._combatEnemies.find(e=>e.hp>0); if(t) doAttack(actor,t);
+      break;
+    case "2": skillMenu(actor); return;
+    case "3": pageMenu(actor); return;
+    case "4": itemMenu(actor); return;
+    case "5": doGuard(actor); break;
+    case "6": doShoot(actor); break;
+    case "7":
+      if(actor.limitReady){ doLimitBreak(actor); actor.limitReady=false; }
+      else print("Limit not ready.","dim");
+      break;
+    default: print("You hesitate. The shelves creak impatiently.","dim");
+  }
+  checkCombatEnd();
+  if(G._inCombat) advanceCombat();
+}
+
+function pickTarget(actor, action){
+  const alive=G._combatEnemies.filter(e=>e.hp>0);
+  print("Target:","accent");
+  alive.forEach((e,i)=>print(`${i+1}. ${e.name} (${e.hp} HP)`));
+  G._subMenu="target"; G._targetAction=action; G._targetActor=actor;
+}
+let _afterTarget=null;
+function continueAfterTarget(){
+  const actor=G._targetActor; const t=G._targetResult;
+  if(G._targetAction==="attack") doAttack(actor,t);
+  else if(G._targetAction==="skill") executeSkill(actor,t,G._targetSkill);
+  else if(G._targetAction==="page_ink") pageInk(actor,t);
+  else if(G._targetAction==="page_null") pageNull(actor,t);
+  else if(G._targetAction==="page_binding") pageBinding(t);
+  else if(G._targetAction==="page_index") pageIndex();
+  else if(G._targetAction==="shoot") doShootTarget(actor,t);
+  checkCombatEnd();
+  if(G._inCombat) advanceCombat();
+  updateStatus();
+}
+
+function doAttack(actor,target){
+  if(!target||target.hp<=0) return;
+  const dmg=Math.max(1,Math.round((actor.atk-target.def)*G.damageMult));
+  target.hp=clamp(target.hp-dmg,0,9999);
+  print(`${actor.name} attacks ${target.name} for ${dmg}.`);
+  if(target.hp<=0) print(`${target.name} dissolves into drifting ink.`,"dim");
+}
+
+function doGuard(actor){ actor.def+=2; print(`${actor.name} braces for impact.`,"dim"); }
+
+function doShoot(actor){
+  if(!G.gun){ print("No gun equipped.","dim"); return; }
+  if(G.shells<G.gun.shells){ print(`Need ${G.gun.shells} shells.`,"dim"); return; }
+  const alive=G._combatEnemies.filter(e=>e.hp>0);
+  if(G.gun.effect==="aoe"){
+    G.shells-=G.gun.shells;
+    print(`The Binding Shotgun fires a wide spread.`);
+    alive.forEach(e=>{ const d=Math.round(ri(G.gun.dmgMin,G.gun.dmgMax)*G.damageMult*0.7); e.hp=clamp(e.hp-d,0,9999); print(`  ${e.name} takes ${d}.`); });
+    print(`(${G.shells} shells)`, "dim");
+  } else if(alive.length>1){
+    pickTarget(actor,"shoot"); return;
+  } else { doShootTarget(actor,alive[0]); }
+}
+function doShootTarget(actor,target){
+  if(!target) return;
+  G.shells-=G.gun.shells;
+  const dmg=Math.round(ri(G.gun.dmgMin,G.gun.dmgMax)*G.damageMult);
+  target.hp=clamp(target.hp-dmg,0,9999);
+  if(G.gun.effect==="ink_burn"){ target.atk=Math.max(0,target.atk-2); print(`${G.gun.name} fires — ${dmg} dmg. Ink burns — ATK-2.`); }
+  else print(`${G.gun.name} fires. ${target.name} takes ${dmg}.`);
+  if(target.hp<=0) print(`${target.name} dissolves.`,"dim");
+  print(`(${G.shells} shells)`, "dim");
+}
+
+// Skill sub-menus
+function skillMenu(actor){
+  blank(); print("Skills:","accent");
+  actor.skills.forEach((s,i)=>print(`${i+1}. ${s.replace(/_/g," ")} — ${SKILL_DESCS[s]||"?"}`));
+  print("Enter to cancel","dim");
+  G._subMenu="skill_choose"; G._skillActor=actor;
+  G._subMenu=null; // Override — handle directly
+  // Actually handle inline
+  blank(); print("(skill number):","accent");
+  actor.skills.forEach((s,i)=>print(`${i+1}. ${s.replace(/_/g," ")}`));
+  G._subMenu="skill_pick";
+}
+// We need proper sub for skill pick
+function handleSubMenuSkill(raw){
+  G._subMenu=null;
+  const idx=parseInt(raw.trim())-1;
+  const actor=G._skillActor;
+  const skill=actor.skills[idx];
+  if(!skill){ print("Nothing happens.","dim"); checkCombatEnd(); if(G._inCombat)advanceCombat(); return; }
+  const alive=G._combatEnemies.filter(e=>e.hp>0);
+  const needsTarget=["scribe_mark","fang_rush","tail_feint","balance_ledger","ink_seal","reckoning_strike",
+    "mask_ink_lash","mask_quiet_rend","mask_hunter_rush","mask_fang_cleave","mask_seal_cut",
+    "mask_margin_step","mask_errata_seal","mask_index_rewrite","mask_index_gaze"].includes(skill);
+  if(needsTarget&&alive.length>1){
+    G._targetAction="skill"; G._targetSkill=skill; G._targetActor=actor;
+    G._subMenu="target";
+    print("Target:","accent"); alive.forEach((e,i)=>print(`${i+1}. ${e.name}`)); return;
+  }
+  executeSkill(actor,alive[0],skill);
+  checkCombatEnd(); if(G._inCombat)advanceCombat(); updateStatus();
+}
+
+function executeSkill(actor,target,skill){
+  const roster=G._combatRoster; const enemies=G._combatEnemies;
+  switch(skill){
+    case "pack_howl":
+      roster.filter(c=>c.faction==="kennel").forEach(c=>c.atk+=2);
+      print("Pack howl — Kennel ATK +2.","accent"); break;
+    case "scribe_mark":
+      if(target){ target.def=Math.max(0,target.def-2); print(`${target.name} marked — DEF -2.`); } break;
+    case "fang_rush":
+      if(target){ const d=Math.round((actor.atk*1.5)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); print(`Fang Rush — ${d} damage!`,"accent"); } break;
+    case "tail_feint":
+      if(target){ const d=Math.round(actor.atk*G.damageMult); target.hp=clamp(target.hp-d,0,9999); target.spd=Math.max(1,target.spd-3); print(`Tail Feint — ${d} dmg, SPD -3.`); } break;
+    case "balance_ledger":
+      if(target){ const missing=actor.maxHp-actor.hp; const d=Math.round(missing*0.8*G.damageMult); target.hp=clamp(target.hp-d,0,9999); print(`Balance Ledger — ${d} damage.`); } break;
+    case "ink_seal":
+      if(target){ target.atk=Math.max(0,target.atk-3); print(`${target.name} sealed — ATK -3.`); } break;
+    case "guard_entry":
+      roster.filter(c=>c.role).forEach(c=>c.def+=3); print("Guard Entry — party DEF +3.","accent"); break;
+    case "reckoning_strike":
+      if(target){ const d=Math.round((actor.atk*1.8)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); print(`Reckoning Strike — ${d} damage!`,"accent"); } break;
+    case "erase_emotion":
+      if(target){ target.atk=Math.max(0,target.atk-2); target.def=Math.max(0,target.def-2); print(`${target.name} — ATK-2 DEF-2.`); } break;
+    case "quiet_pulse":
+      roster.filter(c=>c.faction==="null").forEach(c=>{const h=ri(6,12);c.hp=Math.min(c.maxHp,c.hp+h);});
+      print("Quiet Pulse — Null allies healed.","accent"); break;
+    case "unmake":
+      if(target){ const d=Math.round(ri(20,30)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); actor.hp=clamp(actor.hp-8,0,9999); print(`Unmake — ${d} dmg, 8 backlash.`,"accent"); } break;
+    case "echo_burst":
+      enemies.filter(e=>e.hp>0).forEach(e=>{ const d=Math.round(ri(10,16)*G.damageMult); e.hp=clamp(e.hp-d,0,9999); print(`${e.name} takes ${d}.`); });
+      print("Echo Burst — AoE Null damage.","accent"); break;
+    case "mask_ink_lash":
+      if(target){ const d=Math.round(ri(12,18)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); target.def=Math.max(0,target.def-2); print(`Ink Lash — ${d} dmg, DEF-2.`); } break;
+    case "mask_scribe_guard":
+      roster.filter(c=>c.role).forEach(c=>c.def+=3); print("Scribe Guard — party DEF +3.","accent"); break;
+    case "mask_quiet_rend":
+      if(target){ const d=Math.round(ri(10,16)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); G.dread=clamp(G.dread+5,0,100); print(`Quiet Rend — ${d} dmg.`); } break;
+    case "mask_unmake_pulse":
+      enemies.filter(e=>e.hp>0).forEach(e=>{ const d=Math.round(ri(8,14)*G.damageMult); e.hp=clamp(e.hp-d,0,9999); }); print("Unmake Pulse — AoE.","accent"); break;
+    case "mask_hunter_rush":
+      if(target){ let tot=0; for(let i=0;i<ri(2,4);i++){const d=Math.round(ri(5,9)*G.damageMult);target.hp=clamp(target.hp-d,0,9999);tot+=d;} print(`Hunter Rush — ${tot} total.`,"accent"); } break;
+    case "mask_pack_instinct":
+      roster.filter(c=>c.role).forEach(c=>c.spd+=2); print("Pack Instinct — party SPD +2.","accent"); break;
+    case "mask_fang_cleave":
+      if(target){ const d=Math.round(ri(18,26)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); print(`Fang Cleave — ${d}!`,"accent"); } break;
+    case "mask_seal_cut":
+      if(target){ const d=Math.round(ri(10,16)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); target.atk=Math.max(0,target.atk-3); print(`Seal Cut — ${d} dmg, ATK-3.`); } break;
+    case "mask_index_gaze":
+      if(target) print(`${target.name}: HP ${target.hp}/${target.maxHp} ATK ${target.atk} DEF ${target.def} SPD ${target.spd}`,"dim"); break;
+    case "mask_hidden_shelf":
+      const r=curRoom(); const dirs2=["north","south","east","west"];
+      const missing=dirs2.find(d=>!r.exits[d]);
+      if(missing){ r.exits[missing]=null; print(`A hidden exit appears: ${missing}.`,"green"); }
+      else print("No hidden shelves here.","dim"); break;
+    case "mask_margin_step":
+      if(target){ const d=Math.round(ri(14,22)*G.damageMult); target.hp=clamp(target.hp-d,0,9999); print(`Margin Step — ${d} (DEF bypassed).`,"accent"); } break;
+    case "mask_ghost_step":
+      print("Ghost Step — Lingerer won't notice this move.","dim");
+      G.lingerCounter=Math.max(0,G.lingerCounter-3); break;
+    case "mask_errata_seal":
+      if(target){ target.atk=Math.max(0,target.atk-3); target.def=Math.max(0,target.def-3); print(`Errata Seal — target ATK/DEF -3.`); } break;
+    case "mask_index_rewrite":
+      if(target){ target.atk=Math.max(0,target.atk-4); target.def=Math.max(0,target.def-4); target.spd=Math.max(1,target.spd-4); print(`Index Rewrite — all enemy stats -4.`,"accent"); } break;
+    default: print("The shelves ignore your attempt.","dim");
+  }
+}
+
+function pageMenu(actor){
+  blank(); print("Pages:","accent");
+  Object.entries(G.pages).forEach(([k,v])=>print(`  ${k.replace("_"," ")}: ${v}`));
+  print("Type page name (ink/memory/null_page/binding/index):","dim");
+  G._subMenu="page"; G._pageActor=actor;
+}
+function handlePageSub(raw){
+  G._subMenu=null;
+  const type=raw.trim().toLowerCase().replace(" ","_");
+  if(!G.pages.hasOwnProperty(type)||G.pages[type]<=0){ print("You don't have that page.","dim"); checkCombatEnd(); if(G._inCombat)advanceCombat(); return; }
+  G.pages[type]--;
+  const actor=G._pageActor; const alive=G._combatEnemies.filter(e=>e.hp>0);
+  if(type==="memory"){ const h=ri(15,25); actor.hp=Math.min(actor.maxHp,actor.hp+h); print(`Memory page — +${h} HP.`,"green"); }
+  else if(type==="index"){ print("Index page:");alive.forEach(e=>print(`  ${e.name}: HP ${e.hp}/${e.maxHp} ATK ${e.atk} DEF ${e.def}`,"dim")); }
+  else if(alive.length>1){
+    G._targetAction="page_"+type; G._targetActor=actor;
+    G._subMenu="target"; print("Target:","accent"); alive.forEach((e,i)=>print(`${i+1}. ${e.name}`)); return;
+  } else {
+    const t=alive[0]; if(!t){ checkCombatEnd(); if(G._inCombat)advanceCombat(); return; }
+    if(type==="ink"){ pageInk(actor,t); }
+    else if(type==="null_page"){ pageNull(actor,t); }
+    else if(type==="binding"){ pageBinding(t); }
+  }
+  checkCombatEnd(); if(G._inCombat)advanceCombat(); updateStatus();
+}
+function pageInk(a,t){ const d=Math.round(ri(14,22)*G.damageMult); t.hp=clamp(t.hp-d,0,9999); print(`Ink page burns ${t.name} for ${d}.`,"accent"); }
+function pageNull(a,t){ t.atk=Math.max(0,t.atk-3); t.def=Math.max(0,t.def-3); print(`Null page — ${t.name} ATK/DEF -3.`); }
+function pageBinding(t){ t.spd=Math.max(1,t.spd-5); print(`${t.name} bound — SPD -5.`); }
+function pageIndex(){ G._combatEnemies.filter(e=>e.hp>0).forEach(e=>print(`${e.name}: HP ${e.hp}/${e.maxHp}`,"dim")); }
+
+function itemMenu(actor){
+  blank(); print(`Items: 1. Medication (${G.medication})`, "accent");
+  G._subMenu="item"; G._itemActor=actor;
+}
+function handleItemSub(raw){
+  G._subMenu=null;
+  if(raw.trim()==="1"){
+    if(G.medication>0){ G.medication--; const h=ri(10,15); G._itemActor.hp=Math.min(G._itemActor.maxHp,G._itemActor.hp+h); print(`+${h} HP.`,"green"); }
+    else print("Out of medication.","dim");
+  }
+  checkCombatEnd(); if(G._inCombat)advanceCombat(); updateStatus();
+}
+
+function doLimitBreak(actor){
+  print(`${actor.name}: ${actor.limitName}!`,"yellow");
+  const enemies=G._combatEnemies.filter(e=>e.hp>0);
+  switch(actor.id){
+    case "player":
+      enemies.forEach(e=>{ const d=Math.round(ri(30,45)*G.damageMult); e.hp=clamp(e.hp-d,0,9999); print(`${e.name} takes ${d}!`,"accent"); }); break;
+    case "leto": case "confessor": case "nurse":
+      G._combatRoster.filter(c=>c.role).forEach(c=>c.def+=4);
+      print("Party DEF +4.","green"); break;
+    case "mira":
+      enemies.forEach((e,i)=>{ const d=Math.round((5-i)*8*G.damageMult); e.hp=clamp(e.hp-d,0,9999); print(`${e.name} takes ${d}!`); }); break;
+    case "knight":
+      G._combatRoster.filter(c=>c.role).forEach(c=>c.def+=6);
+      print("Closed Book — party DEF +6.","green"); break;
+    case "echo_pup":
+      enemies.forEach(e=>{ const d=Math.round(ri(25,38)*G.damageMult); e.hp=clamp(e.hp-d,0,9999); print(`${e.name} takes ${d}!`,"purple"); }); break;
+    default:
+      enemies.forEach(e=>{ const d=Math.round(ri(20,30)*G.damageMult); e.hp=clamp(e.hp-d,0,9999); }); break;
+  }
+}
+
+function enemyCombatTurn(enemy){
+  if(enemy.hp<=0) return;
+  const party=G._combatRoster.filter(c=>c.role&&c.hp>0);
+  if(!party.length) return;
+  const target=pick(party);
+  const dmg=Math.max(1,Math.round((enemy.atk-target.def)*G.damageMult));
+  target.hp=clamp(target.hp-dmg,0,9999);
+  print(`${enemy.name} strikes ${target.name} for ${dmg}.`,target.hp<target.maxHp*0.3?"red":"");
+  if(target.hp<=0) print(`${target.name} collapses.`,"dim");
+  if(target.id==="player") G.hp=target.hp;
+}
+
+function checkCombatEnd(){
+  if(!G._inCombat) return;
+  const pa=G._combatRoster.find(c=>c.id==="player");
+  if(pa&&pa.hp<=0){
+    G.hp=0; G._inCombat=false;
+    blank(); print("You collapse between the shelves.","red");
+    print("Your page ends here."); print("The Stacks grow quiet.");
+    G.phase="dead"; setupPhase="done"; G=null;
+    blank(); print("(type anything to return)","dim"); return;
+  }
+  if(G._combatEnemies.every(e=>e.hp<=0)){
+    G._inCombat=false;
+    syncPlayerFromActor();
+    concludeBattle();
+  }
+  if(G.dread>=100){ G._inCombat=false; checkDreadEnd(); }
+}
+
+function syncPlayerFromActor(){
+  const pa=G._combatRoster.find(c=>c.id==="player");
+  if(pa){ G.hp=clamp(pa.hp,0,G.maxHp); }
+  G.party.forEach(pm=>{
+    const ra=G._combatRoster.find(c=>c.id===pm.id);
+    if(ra) pm.hp=clamp(ra.hp,0,pm.maxHp);
+  });
+}
+
+function concludeBattle(){
+  blank(); print("The ink settles. The shelves fall quiet.","dim");
+  const gain=ri(10,20); G.scraps+=gain; print(`+${gain} scraps.`,"green");
+  if(Math.random()<0.20){ G.maskFragments++; print(`A mask fragment. (${G.maskFragments}/5)`,"green"); if(G.maskFragments>=5)forgeMask(true); }
+  if(Math.random()<0.25){ const sh=ri(1,4); G.shells+=sh; print(`+${sh} shells.`,"green"); }
+  if(Math.random()<0.08&&!G.gun){
+    const gun=pick(INK_GUNS); print(`Enemy dropped: ${gun.name}.`); print(gun.desc,"dim");
+    print("Equip it? (y/n)","accent");
+    G._pendingConfirm={yes:()=>{G.gun=gun;print(`Equipped ${gun.name}.`,"green");},no:()=>print("Left it.","dim")};
+  }
+  if(G.equippedMask){
+    const xp=ri(5,10); G.equippedMask.xp+=xp;
+    print(`Mask ${G.equippedMask.name} +${xp} XP.`,"dim");
+    levelUpMask(G.equippedMask);
+  }
+  G.dread=clamp(G.dread-Math.round(20*G.dreadGainMult),0,100);
+  // Clean dead enemies from room
+  const r=curRoom(); if(r){ r.enemies=r.enemies.filter(e=>e.hp>0); }
+  updateStatus();
+}
+
+function levelUpMask(m){
+  let needed=m.level*10;
+  while(m.xp>=needed){ m.xp-=needed; m.level++; needed=m.level*10;
+    m.stats.hp+=2; m.stats.atk+=1; m.stats.def+=1; m.stats.spd+=1;
+    print(`Mask ${m.name} → Level ${m.level}!`,"accent");
+  }
+}
+
+// Override handleSubMenu to include skill and item
+function handleSubMenu(raw){
+  if(G._subMenu==="chase"){ handleChase(raw.trim().toLowerCase()); return; }
+  if(G._subMenu==="mask"){ handleMaskSub(raw.trim().toLowerCase()); return; }
+  if(G._subMenu==="fuse_a"){ handleFuseA(raw.trim().toLowerCase()); return; }
+  if(G._subMenu==="fuse_b"){ handleFuseB(raw.trim().toLowerCase()); return; }
+  if(G._subMenu==="gun"){ handleGunSub(raw.trim().toLowerCase()); return; }
+  if(G._subMenu==="target"||G._subMenu==="join_faction"||G._subMenu==="merchant_buy"){ handleTargetSub(raw); return; }
+  if(G._subMenu==="page"){ handlePageSub(raw); return; }
+  if(G._subMenu==="item"){ handleItemSub(raw); return; }
+  if(G._subMenu==="skill_pick"){ handleSubMenuSkill(raw); return; }
+}
+
+// Patch skillMenu to set correct sub
+const _origSkillMenu=skillMenu;
+function skillMenu(actor){
+  G._skillActor=actor; blank(); print("Skills:","accent");
+  actor.skills.forEach((s,i)=>print(`${i+1}. ${s.replace(/_/g," ")} — ${SKILL_DESCS[s]||"?"}`));
+  print("Enter to cancel","dim");
+  G._subMenu="skill_pick";
+}
+
+// ============================================================
+// PROPHET BATTLE
+// ============================================================
+function startProphetBattle(){
+  blank(); sep("═");
+  print("The shelves open into a vast circular chamber.","dim");
+  print("Pages drift like snow.","dim");
+  print("A tall figure stands at the center.","dim");
+  blank(); print('"You were never written," it says.', "yellow");
+  blank();
+  if(G.equippedMask){
+    const lines={"null":'"You already practice erasure," the Prophet notes.',"kennel":'"Pack instincts in a place of solitude," it muses.',"order":'"You brought ledgers into a place of unwritten things."',"fang":'"You cling to the Fang\'s echo. It will not save you."',"unwritten":'"You wear the Library\'s own face," it whispers.'};
+    print(lines[G.equippedMask.arcana]||""," dim");
+  }
+  sep("═");
+  const prophet={name:"The Prophet",hp:500,maxHp:500,atk:14,def:8,spd:12,tags:["boss"],isBoss:true};
+  G._prophetPhase=1;
+  G._combatEnemies=[prophet];
+  G._combatRoster=buildRoster([prophet]);
+  G._atb={}; G._combatRoster.forEach(c=>G._atb[c.id]=0);
+  G._inCombat=true; G._isProphet=true;
+  showCombatStatus();
+  advanceProphet();
+}
+
+function advanceProphet(){
+  if(!G._inCombat) return;
+  checkLimitBreaks();
+  const alive=G._combatRoster.filter(c=>c.hp>0);
+  alive.forEach(c=>G._atb[c.id]=(G._atb[c.id]||0)+(c.spd||c.speed||9));
+  const actor=alive.find(c=>G._atb[c.id]>=100);
+  if(!actor){ advanceProphet(); return; }
+  G._atb[actor.id]=0;
+  if(actor.role){
+    G._activeActor=actor;
+    promptProphetAction(actor);
+  } else {
+    prophetEnemyTurn(actor);
+    checkProphetPhase();
+    checkCombatEnd();
+    if(G._inCombat) advanceProphet();
+  }
+}
+
+function promptProphetAction(actor){
+  blank(); print(`${actor.name}'s turn.`,"accent");
+  const gunLabel=G.gun?`Shoot[${G.shells}sh]`:"Shoot[no gun]";
+  print(`1.Attack  2.Skill  3.Page  4.Guard  5.${gunLabel}${actor.limitReady?"  6.Limit":""}`);
+  G._prophetTurnMode=true;
+}
+
+function prophetEnemyTurn(enemy){
+  const party=G._combatRoster.filter(c=>c.role&&c.hp>0); if(!party.length) return;
+  const target=pick(party);
+  switch(G._prophetPhase){
+    case 1:
+      const d1=Math.round(ri(10,16)*G.damageMult); target.hp=clamp(target.hp-d1,0,9999);
+      print(`The Prophet predicts your next move — ${target.name} takes ${d1}.`); break;
+    case 2:
+      print("The Prophet rewrites the turn order.","yellow");
+      G._combatRoster.sort(()=>Math.random()-0.5); break;
+    case 3:
+      const d3=Math.round(ri(14,22)*G.damageMult); target.hp=clamp(target.hp-d3,0,9999);
+      print(`Ink floods the chamber — ${target.name} takes ${d3}.`,"red"); break;
+  }
+  if(target.hp<=0) print(`${target.name}'s page tears.`,"dim");
+  if(target.id==="player") G.hp=target.hp;
+}
+
+function checkProphetPhase(){
+  const p=G._combatEnemies[0];
+  if(p.hp<300&&G._prophetPhase===1){
+    G._prophetPhase=2;
+    print("\nThe Prophet's form flickers — it becomes partially unwritten.","yellow");
+  }
+  if(p.hp<120&&G._prophetPhase===2){
+    G._prophetPhase=3;
+    print('\nThe Prophet raises a hand. "The Fang was a bookmark."',"yellow");
+    shatterFang();
+  }
+}
+
+function shatterFang(){
+  if(G.fangShattered) return;
+  blank(); print("You raise the Fang. It vibrates violently.","yellow");
+  print("The Fang screams — then shatters into dust.","red");
+  G.hasFang=false; G.fangShattered=true;
+}
+
+// Override handleCombatInput for prophet turn mode
+const _origHandleCombat=handleCombatInput;
+function handleCombatInput(raw){
+  if(G._isProphet){ handleProphetInput(raw); return; }
+  _origHandleCombat(raw);
+}
+
+function handleProphetInput(raw){
+  const c=raw.trim().toLowerCase();
+  const actor=G._activeActor;
+  if(!actor) return;
+  if(G._subMenu){ handleSubMenu(raw); return; }
+  if(c==="fkill"){ G._combatEnemies.forEach(e=>e.hp=0); print(".","dim"); checkCombatEnd(); if(G._inCombat)advanceProphet(); return; }
+
+  switch(c){
+    case "1":
+      if(G._prophetPhase===2){ print("Your attack passes through its unwritten form.","dim"); break; }
+      doAttack(actor,G._combatEnemies[0]); break;
+    case "2": skillMenu(actor); return;
+    case "3":
+      if(G._prophetPhase===2) print("Only Pages and Masks can harm it now.","dim");
+      pageMenu(actor); return;
+    case "4": doGuard(actor); break;
+    case "5": doShoot(actor); break;
+    case "6":
+      if(actor.limitReady){ doLimitBreak(actor); actor.limitReady=false; }
+      else print("Limit not ready.","dim"); break;
+    default: print("You hesitate. The Prophet watches.","dim");
+  }
+  checkCombatEnd();
+  if(G._inCombat) advanceProphet();
+}
+
+// Override conclude for prophet
+const _origConclude=concludeBattle;
+function concludeBattle(){
+  if(G._isProphet){ concludeProphet(); return; }
+  _origConclude();
+}
+// But wait - concludeBattle is called from checkCombatEnd which doesn't know about prophet
+// We need to patch checkCombatEnd. Let's override the enemy check:
+function concludeProphet(){
+  G._inCombat=false; G._isProphet=false;
+  G.bossDefeated=true;
+  syncPlayerFromActor();
+  blank(); print("The Prophet falls silent.","dim");
+  print("Pages drift upward like ash.","dim");
+  print('"The First-Birth… becomes the Seal."',"yellow");
+  blank();
+  print("The Infinite Library begins to collapse.","yellow");
+  print("Shelves twist. Pages scream.","dim");
+  print("Your party looks to you.","dim");
+  blank();
+  print(`You step forward.`);
+  print(`The Prophet's remnants swirl around you.`);
+  print(`Your name — ${G.name} — echoes through the chamber.`);
+  blank();
+  print("ERASE: SELF — ASCENSION FORM","bold");
+  blank();
+  if(G.equippedMask) print(`Your Mask ${G.equippedMask.name} hums in resonance.`,"accent");
+  blank();
+  print("Use it? (yes/no)","accent");
+  G._pendingConfirm={
+    yes:()=>performFinalSeal(),
+    no:()=>{ print("The shelves collapse. Your party screams your name.","red"); endGame(); }
+  };
+}
+
+function performFinalSeal(){
+  blank(); sep("═");
+  print("You raise your paw.","dim");
+  print("Light — ink — memory — all swirl together.","dim");
+  print("Your body dissolves into drifting pages.","dim");
+  print("Your name becomes a title:","dim");
+  blank();
+  print(`THE INDEX OF ${G.name.toUpperCase()}`,"bold");
+  blank();
+  print("The Prophet is sealed. The Library stabilizes.","dim");
+  blank(); sep("═");
+  blank();
+
+  const faction=G.faction; const m=G.equippedMask;
+  if(faction==="kennel"){
+    print("The Kennel gathers around the new Seal. They howl — not in grief, but in reverence.","accent");
+    print("A shrine is built: THE DEN OF THE FIRST-BIRTH","bold");
+    if(m) print(`Your Mask ${m.name} is carved beside your name.`);
+    print(`${G.name} — Guardian of the Unwritten.`);
+  } else if(faction==="order"){
+    print("The Order records your sacrifice.","accent");
+    print('"THE FIRST-BIRTH — BALANCED THROUGH SELF-ERASURE"',"bold");
+    if(m) print(`Your Mask ${m.name} becomes a sub-ledger of your existence.`);
+    print(`${G.name}, the Final Equation.`);
+  } else {
+    print("The Null gather in silence.","purple");
+    print('"This was always your purpose," they whisper.`');
+    if(m){ print(`Your Mask ${m.name} dissolves into the Seal.`); print(`${G.name} becomes the Quiet Between Pages.`); }
+    else print(`${G.name} becomes the Quiet Between Pages.`);
+  }
+  blank(); sep("═"); blank();
+  print("=== THANK YOU FOR PLAYING DARK FLOOF II ===","accent");
+  print("Your page closes here."); print("…for now.","dim");
+  blank();
+  print("DARK FLOOF III:","bold");
+  print("WORKING TITLE — \"THE PLACE THAT DIDN'T TAKE\"","dim");
+  blank();
+  print("Somewhere far behind the sealed Library,","dim");
+  print("long before the Hospital ever breathed,","dim");
+  print("a different world exhales:","dim");
+  blank();
+  print("NOT A HOSPITAL. NOT A LIBRARY.","dim");
+  print("A PLACE BUILT FROM MARBLE AND MYTH.","dim");
+  print("A PLACE THAT EXISTED BEFORE ENDINGS.","dim");
+  blank();
+  print("Ancient Greece, but wrong.","dim");
+  print("Too bright. Too unfinished.","dim");
+  print("A lone husky walks the sun-bleached path,","dim");
+  print("the first to ever carry the Fang.","dim");
+  blank();
+  endGame();
+}
+
+function endGame(){
+  G.phase="done"; setupPhase="done";
+  blank(); print("(type anything to return to title)","dim");
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+document.getElementById("cmd").addEventListener("keydown", e=>{
+  if(e.key!=="Enter") return;
+  const raw=document.getElementById("cmd").value;
+  document.getElementById("cmd").value="";
+  if(raw.trim()) print(`> ${raw}`,"dim");
+
+  if(setupPhase==="done"||(!G&&setupPhase==="play")){ G=null; startTitle(); return; }
+  if(setupPhase!=="play"){ handleSetup(raw); updateStatus(); return; }
+  if(!G){ startTitle(); return; }
+  handlePlay(raw);
+  updateStatus();
+});
+
+document.addEventListener("click",()=>document.getElementById("cmd").focus());
+
+// ============================================================
+// BOOT
+// ============================================================
+startTitle();
+</script>
+</body>
+</html>
