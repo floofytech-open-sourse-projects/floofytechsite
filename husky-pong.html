@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Husky Pong</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Bungee+Shade&display=swap');
+
+  :root {
+    --grass:   #1a3a1a;
+    --grass2:  #1f4a1f;
+    --cream:   #f0ead8;
+    --gold:    #e8a020;
+    --dark:    #0d1f0d;
+    --white:   #f5f5f0;
+    --shadow:  rgba(0,0,0,0.5);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Bungee', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  h1 {
+    font-family: 'Bungee Shade', monospace;
+    font-size: clamp(22px, 4vw, 36px);
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 0 #3a2000;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: #4a7a4a;
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+  }
+
+  .score-row {
+    display: flex;
+    gap: 60px;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+
+  .score {
+    font-size: clamp(28px, 5vw, 48px);
+    color: var(--white);
+    min-width: 50px;
+    text-align: center;
+  }
+
+  .score-label {
+    font-size: 10px;
+    color: #4a7a4a;
+    letter-spacing: 2px;
+    text-align: center;
+    margin-top: -6px;
+  }
+
+  .vs {
+    font-size: 14px;
+    color: #2a5a2a;
+    letter-spacing: 2px;
+  }
+
+  #arena {
+    position: relative;
+    border: 3px solid #2a5a2a;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(0,80,0,0.3), inset 0 0 60px rgba(0,0,0,0.4);
+    background: var(--grass);
+  }
+
+  canvas {
+    display: block;
+  }
+
+  .controls {
+    margin-top: 12px;
+    display: flex;
+    gap: 30px;
+    font-size: 10px;
+    color: #3a6a3a;
+    letter-spacing: 1px;
+  }
+
+  .controls span { color: var(--gold); }
+
+  #message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(16px, 3vw, 28px);
+    color: var(--gold);
+    text-align: center;
+    text-shadow: 2px 2px 0 #1a1a1a;
+    pointer-events: none;
+    letter-spacing: 2px;
+    line-height: 1.6;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<h1>HUSKY PONG</h1>
+<div class="subtitle">MOVE MOUSE TO CONTROL &nbsp;·&nbsp; SPACE TO START</div>
+
+<div class="score-row">
+  <div>
+    <div class="score" id="scoreL">0</div>
+    <div class="score-label">LYDIA</div>
+  </div>
+  <div class="vs">VS</div>
+  <div>
+    <div class="score" id="scoreR">0</div>
+    <div class="score-label">GOLDEN</div>
+  </div>
+</div>
+
+<div id="arena">
+  <canvas id="c"></canvas>
+  <div id="message">PRESS SPACE<br><span style="font-size:0.55em;color:#4a7a4a;letter-spacing:3px">TO START</span></div>
+</div>
+
+<div class="controls">
+  <div>YOU: <span>MOUSE</span></div>
+  <div>OPPONENT: <span>AI</span></div>
+</div>
+
+<script>
+const canvas  = document.getElementById("c");
+const ctx     = canvas.getContext("2d");
+const msg     = document.getElementById("message");
+const scoreLD = document.getElementById("scoreL");
+const scoreRD = document.getElementById("scoreR");
+
+// ── Responsive sizing ──────────────────────────────────────────────────────
+function computeSize() {
+  const maxW = Math.min(window.innerWidth  - 32, 700);
+  const maxH = Math.min(window.innerHeight - 220, 460);
+  const ratio = 7 / 4.6;
+  let W = maxW, H = maxW / ratio;
+  if (H > maxH) { H = maxH; W = H * ratio; }
+  return { W: Math.floor(W), H: Math.floor(H) };
+}
+
+let { W, H } = computeSize();
+canvas.width  = W;
+canvas.height = H;
+
+// ── Game state ─────────────────────────────────────────────────────────────
+let scoreL = 0, scoreR = 0;
+let running = false, paused = false;
+
+const PADDLE_W  = () => Math.max(10, W * 0.018);
+const PADDLE_H  = () => H * 0.22;
+const BALL_R    = () => Math.max(8, W * 0.018);
+const SPEED_INC = 0.4;
+const WIN_SCORE = 7;
+
+let lPaddle, rPaddle, ball;
+let keys = {};
+let mouseY = 0;  // tracks cursor Y relative to canvas
+let animId;
+
+function initRound() {
+  const pw = PADDLE_W(), ph = PADDLE_H(), br = BALL_R();
+  const margin = pw * 2;
+
+  lPaddle = { x: margin, y: H/2 - ph/2, w: pw, h: ph, dy: 0, speed: H * 0.012 };
+  rPaddle = { x: W - margin - pw, y: H/2 - ph/2, w: pw, h: ph, dy: 0, speed: H * 0.012 };
+
+  const angle = (Math.random() * 60 - 30) * Math.PI / 180;
+  const dir   = Math.random() < 0.5 ? 1 : -1;
+  const spd   = W * 0.009;
+
+  ball = {
+    x: W/2, y: H/2,
+    r: br,
+    vx: Math.cos(angle) * spd * dir,
+    vy: Math.sin(angle) * spd,
+    trail: []
+  };
+}
+
+initRound();
+mouseY = H / 2;
+
+// ── Draw helpers ───────────────────────────────────────────────────────────
+
+// Grass field lines
+function drawField() {
+  // Base
+  ctx.fillStyle = "#182e18";
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle alternating grass strips
+  for (let i = 0; i < 7; i++) {
+    ctx.fillStyle = i % 2 === 0 ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.015)";
+    ctx.fillRect(i * W/7, 0, W/7, H);
+  }
+
+  // Centre line
+  ctx.setLineDash([H * 0.04, H * 0.04]);
+  ctx.strokeStyle = "rgba(255,255,255,0.12)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(W/2, 0);
+  ctx.lineTo(W/2, H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Centre circle
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(W/2, H/2, H * 0.12, 0, Math.PI*2);
+  ctx.stroke();
+}
+
+// Lydia (black & white husky) paddle
+function drawLydia(p) {
+  const x = p.x, y = p.y, w = p.w, h = p.h;
+  const cx = x + w/2, cy = y + h/2;
+  const scale = h / 80;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+
+  // Body — black
+  ctx.fillStyle = "#1c1c1c";
+  ctx.beginPath(); ctx.ellipse(0, 8, 11, 14, 0, 0, Math.PI*2); ctx.fill();
+  // Belly white
+  ctx.fillStyle = "#e0dcd0";
+  ctx.beginPath(); ctx.ellipse(1, 12, 6, 9, 0.05, 0, Math.PI*2); ctx.fill();
+
+  // Left ear
+  ctx.fillStyle = "#0d0d0d";
+  ctx.beginPath(); ctx.moveTo(-7,-18); ctx.lineTo(-10,-32); ctx.lineTo(-1,-18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#7a5a42";
+  ctx.beginPath(); ctx.moveTo(-7,-19); ctx.lineTo(-9,-29); ctx.lineTo(-2,-19); ctx.closePath(); ctx.fill();
+  // Right ear
+  ctx.fillStyle = "#0d0d0d";
+  ctx.beginPath(); ctx.moveTo(1,-18); ctx.lineTo(10,-32); ctx.lineTo(7,-18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#7a5a42";
+  ctx.beginPath(); ctx.moveTo(2,-19); ctx.lineTo(9,-29); ctx.lineTo(7,-19); ctx.closePath(); ctx.fill();
+
+  // Head — black
+  ctx.fillStyle = "#181818";
+  ctx.beginPath(); ctx.ellipse(0,-10, 12, 11, 0, 0, Math.PI*2); ctx.fill();
+  // White blaze
+  ctx.fillStyle = "#e2dece";
+  ctx.beginPath();
+  ctx.moveTo(-3,-20); ctx.bezierCurveTo(-4,-15,-5,-9,-4.5,-4);
+  ctx.bezierCurveTo(-2.5,-2,2.5,-2,4.5,-4);
+  ctx.bezierCurveTo(5,-9,4,-15,3,-20); ctx.closePath(); ctx.fill();
+
+  // Muzzle
+  ctx.fillStyle = "#d8d4c8";
+  ctx.beginPath(); ctx.ellipse(0,-3,6,4.5,0,0,Math.PI*2); ctx.fill();
+  // Nose
+  ctx.fillStyle = "#0c0c12";
+  ctx.beginPath(); ctx.ellipse(0,-6,2.8,2,0,0,Math.PI*2); ctx.fill();
+
+  // Eyes — brown
+  ctx.fillStyle = "#101010";
+  ctx.beginPath(); ctx.ellipse(-4.5,-12,3.5,2.8,-0.15,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4.5,-12,3.5,2.8,0.15,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#6e3e10";
+  ctx.beginPath(); ctx.ellipse(-4.5,-12,2,2,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4.5,-12,2,2,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#060608";
+  ctx.beginPath(); ctx.ellipse(-4.5,-12,1,1,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4.5,-12,1,1,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath(); ctx.ellipse(-3.6,-12.8,0.6,0.5,0.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5.4,-12.8,0.6,0.5,0.5,0,Math.PI*2); ctx.fill();
+
+  // Tail
+  ctx.save();
+  ctx.strokeStyle = "#111"; ctx.lineWidth=5; ctx.lineCap="round";
+  ctx.beginPath(); ctx.arc(-2,14,12,0.4,-1.0,true); ctx.stroke();
+  ctx.strokeStyle="#d8d8d8"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(-2,14,12,0.4,-1.0,true); ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// Golden retriever paddle
+function drawGolden(p) {
+  const x = p.x, y = p.y, w = p.w, h = p.h;
+  const cx = x + w/2, cy = y + h/2;
+  const scale = h / 80;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+
+  // Body — golden
+  ctx.fillStyle = "#c87e18";
+  ctx.beginPath(); ctx.ellipse(0, 8, 11, 14, 0, 0, Math.PI*2); ctx.fill();
+  // Belly lighter
+  ctx.fillStyle = "#e8bc60";
+  ctx.beginPath(); ctx.ellipse(1, 12, 6, 9, 0.05, 0, Math.PI*2); ctx.fill();
+
+  // Floppy ears
+  ctx.fillStyle = "#b87818";
+  ctx.beginPath(); ctx.ellipse(-11,2,5,9,0.25,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#d49028";
+  ctx.beginPath(); ctx.ellipse(-11,2,3.5,7,0.25,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#b87818";
+  ctx.beginPath(); ctx.ellipse(11,2,5,9,-0.25,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#d49028";
+  ctx.beginPath(); ctx.ellipse(11,2,3.5,7,-0.25,0,Math.PI*2); ctx.fill();
+
+  // Head
+  ctx.fillStyle = "#c87e18";
+  ctx.beginPath(); ctx.ellipse(0,-10,12,11,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#e09828";
+  ctx.beginPath(); ctx.ellipse(0,-13,7,7,0,0,Math.PI*2); ctx.fill();
+
+  // Muzzle
+  ctx.fillStyle = "#e8bc60";
+  ctx.beginPath();
+  ctx.moveTo(-6,-3); ctx.bezierCurveTo(-6,4,-3,6,0,6);
+  ctx.bezierCurveTo(3,6,6,4,6,-3); ctx.bezierCurveTo(4,-5,-4,-5,-6,-3);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#d4a040";
+  ctx.beginPath(); ctx.ellipse(0,3,4,3,0,0,Math.PI*2); ctx.fill();
+
+  // Nose
+  ctx.fillStyle = "#181018";
+  ctx.beginPath(); ctx.ellipse(0,-1,3.5,2.5,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  ctx.beginPath(); ctx.ellipse(-1.3,-1.8,1.3,0.8,0.2,0,Math.PI*2); ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = "#0a0808";
+  ctx.beginPath(); ctx.ellipse(-4,-7,2.8,2.8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4,-7,2.8,2.8,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#3a1a08";
+  ctx.beginPath(); ctx.ellipse(-4,-7,1.8,1.8,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4,-7,1.8,1.8,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.beginPath(); ctx.ellipse(-3,-8,0.6,0.5,0.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(5,-8,0.6,0.5,0.5,0,Math.PI*2); ctx.fill();
+
+  // Tongue
+  ctx.fillStyle = "#e85070";
+  ctx.beginPath();
+  ctx.moveTo(-2,5); ctx.bezierCurveTo(-2,10,2,10,2,5);
+  ctx.bezierCurveTo(1.5,3.5,-1.5,3.5,-2,5); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle="#c03858"; ctx.lineWidth=0.7;
+  ctx.beginPath(); ctx.moveTo(0,5); ctx.lineTo(0,9.5); ctx.stroke();
+
+  // Tail
+  ctx.save();
+  ctx.strokeStyle = "#b87818"; ctx.lineWidth=5; ctx.lineCap="round";
+  ctx.beginPath(); ctx.arc(2,14,12,0.4,-1.0,true); ctx.stroke();
+  ctx.strokeStyle="#e8a030"; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(2,14,12,0.4,-1.0,true); ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// Ball — a bone
+function drawBall(b) {
+  const r = b.r;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+
+  // Trail
+  for (let i = 0; i < b.trail.length; i++) {
+    const t = b.trail[i];
+    const alpha = (i / b.trail.length) * 0.3;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = "#c8a060";
+    ctx.beginPath(); ctx.arc(t.x - b.x, t.y - b.y, r * 0.5, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  const angle = Math.atan2(b.vy, b.vx);
+  ctx.rotate(angle);
+
+  const W2 = r * 1.6, H2 = r * 0.55, knob = r * 0.55;
+
+  function treatPath() {
+    ctx.arc(-W2, -H2/2, knob, 0, Math.PI*2);
+    ctx.arc(-W2,  H2/2, knob, 0, Math.PI*2);
+    ctx.arc( W2, -H2/2, knob, 0, Math.PI*2);
+    ctx.arc( W2,  H2/2, knob, 0, Math.PI*2);
+    ctx.rect(-W2, -H2/2+1, W2*2, H2-2);
+  }
+
+  // Shadow
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.save(); ctx.translate(2,3);
+  ctx.beginPath(); treatPath(); ctx.fill();
+  ctx.restore();
+
+  // Base
+  ctx.beginPath(); treatPath(); ctx.fillStyle = "#c8a060"; ctx.fill();
+  // Dark underside
+  ctx.beginPath(); treatPath(); ctx.fillStyle = "#a07838"; ctx.fill();
+  // Light top half
+  ctx.save();
+  ctx.beginPath(); treatPath(); ctx.clip();
+  ctx.fillStyle = "#e0bc78";
+  ctx.fillRect(-W2-knob, -H2/2-knob, (W2+knob)*2, (H2+knob*2)/2);
+  ctx.restore();
+  // Outline
+  ctx.beginPath(); treatPath(); ctx.strokeStyle = "#7a5020"; ctx.lineWidth = 1.2; ctx.stroke();
+
+  ctx.restore();
+}
+
+// Score flash
+let flashTimer = 0, flashSide = 0;
+function drawScoreFlash() {
+  if (flashTimer > 0) {
+    const alpha = (flashTimer / 30) * 0.18;
+    ctx.fillStyle = flashSide === 1
+      ? `rgba(240,230,210,${alpha})`
+      : `rgba(200,126,24,${alpha})`;
+    ctx.fillRect(flashSide === 1 ? 0 : W/2, 0, W/2, H);
+    flashTimer--;
+  }
+}
+
+// ── Game logic ─────────────────────────────────────────────────────────────
+function update() {
+  // ── Husky (left) — follows mouse Y directly, clamped ──
+  const targetY = mouseY - lPaddle.h / 2;
+  lPaddle.y += (targetY - lPaddle.y) * 0.18;
+  lPaddle.y = Math.max(0, Math.min(H - lPaddle.h, lPaddle.y));
+
+  // ── Golden (right) — AI with imperfect tracking ──
+  // Only react when ball is heading toward the golden's side
+  const aiTarget = rPaddle.y + rPaddle.h / 2;
+  const ballCenter = ball.y;
+  const diff = ballCenter - aiTarget;
+  const aiSpeed = rPaddle.speed * (ball.vx > 0 ? 0.82 : 0.55); // faster when ball comes, lazier otherwise
+  if (Math.abs(diff) > rPaddle.h * 0.08) {
+    rPaddle.y += Math.sign(diff) * Math.min(Math.abs(diff), aiSpeed);
+  }
+  rPaddle.y = Math.max(0, Math.min(H - rPaddle.h, rPaddle.y));
+
+  // Ball trail
+  ball.trail.push({ x: ball.x, y: ball.y });
+  if (ball.trail.length > 8) ball.trail.shift();
+
+  // Ball movement
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Top / bottom bounce
+  if (ball.y - ball.r <= 0) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); bouncePop(); }
+  if (ball.y + ball.r >= H) { ball.y = H - ball.r; ball.vy = -Math.abs(ball.vy); bouncePop(); }
+
+  // Paddle collisions
+  checkPaddleHit(lPaddle, true);
+  checkPaddleHit(rPaddle, false);
+
+  // Score
+  if (ball.x + ball.r < 0) {
+    scoreR++;
+    flashSide = 2; flashTimer = 30;
+    scoreRD.textContent = scoreR;
+    checkWin() || resetBall(1);
+  }
+  if (ball.x - ball.r > W) {
+    scoreL++;
+    flashSide = 1; flashTimer = 30;
+    scoreLD.textContent = scoreL;
+    checkWin() || resetBall(-1);
+  }
+}
+
+function checkPaddleHit(p, isLeft) {
+  const hitX = isLeft
+    ? ball.x - ball.r <= p.x + p.w && ball.x - ball.r >= p.x
+    : ball.x + ball.r >= p.x && ball.x + ball.r <= p.x + p.w;
+
+  if (hitX && ball.y >= p.y && ball.y <= p.y + p.h) {
+    const rel    = (ball.y - (p.y + p.h/2)) / (p.h/2);
+    const angle  = rel * 60 * Math.PI / 180;
+    const spd    = Math.hypot(ball.vx, ball.vy) + SPEED_INC;
+    ball.vx = (isLeft ? 1 : -1) * Math.cos(angle) * spd;
+    ball.vy = Math.sin(angle) * spd;
+    ball.x  = isLeft ? p.x + p.w + ball.r + 1 : p.x - ball.r - 1;
+    bouncePop();
+  }
+}
+
+function bouncePop() {
+  // Small screen flash
+  flashTimer = 5; flashSide = 0;
+}
+
+function resetBall(dir) {
+  setTimeout(() => {
+    ball.trail = [];
+    const angle = (Math.random() * 40 - 20) * Math.PI / 180;
+    const spd   = W * 0.009;
+    ball.x = W/2; ball.y = H/2;
+    ball.vx = Math.cos(angle) * spd * dir;
+    ball.vy = Math.sin(angle) * spd;
+  }, 600);
+  return false;
+}
+
+function checkWin() {
+  if (scoreL >= WIN_SCORE || scoreR >= WIN_SCORE) {
+    running = false;
+    const winner = scoreL >= WIN_SCORE ? "LYDIA" : "GOLDEN";
+    const colour = scoreL >= WIN_SCORE ? "#e0dcd0" : "#e8a030";
+    msg.innerHTML = `<span style="color:${colour}">${winner}</span><br><span style="font-size:0.5em;color:#4a7a4a;letter-spacing:3px">WINS! SPACE TO RESTART</span>`;
+    msg.style.display = "block";
+    return true;
+  }
+  return false;
+}
+
+// ── Render loop ────────────────────────────────────────────────────────────
+function render() {
+  drawField();
+  drawScoreFlash();
+  drawLydia(lPaddle);
+  drawGolden(rPaddle);
+  drawBall(ball);
+}
+
+function loop() {
+  if (running) update();
+  render();
+  animId = requestAnimationFrame(loop);
+}
+
+// ── Mouse tracking ─────────────────────────────────────────────────────────
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseY = e.clientY - rect.top;
+});
+
+// Also start game on click
+canvas.addEventListener("click", () => {
+  if (!running) {
+    if (scoreL >= WIN_SCORE || scoreR >= WIN_SCORE) {
+      scoreL = 0; scoreR = 0;
+      scoreLD.textContent = "0";
+      scoreRD.textContent = "0";
+      initRound();
+    }
+    msg.style.display = "none";
+    running = true;
+  }
+});
+
+// ── Keyboard (space to start only) ────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (e.key === " ") {
+    e.preventDefault();
+    if (!running) {
+      if (scoreL >= WIN_SCORE || scoreR >= WIN_SCORE) {
+        scoreL = 0; scoreR = 0;
+        scoreLD.textContent = "0";
+        scoreRD.textContent = "0";
+        initRound();
+      }
+      msg.style.display = "none";
+      running = true;
+    }
+  }
+});
+
+// ── Resize ─────────────────────────────────────────────────────────────────
+window.addEventListener("resize", () => {
+  const sz = computeSize();
+  W = sz.W; H = sz.H;
+  canvas.width  = W;
+  canvas.height = H;
+  initRound();
+});
+
+// ── Go ─────────────────────────────────────────────────────────────────────
+loop();
+</script>
+</body>
+</html>
