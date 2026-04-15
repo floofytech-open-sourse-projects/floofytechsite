@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Floof IV — The Overnight</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0a0a0a;
+    --fg:      #c8c8b8;
+    --dim:     #555548;
+    --accent:  #a0a890;
+    --red:     #c84040;
+    --green:   #60a860;
+    --yellow:  #c8a840;
+    --cursor:  #c8c8b8;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Share Tech Mono', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  #terminal {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 12px;
+  }
+
+  #output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 0 8px;
+    scroll-behavior: smooth;
+  }
+
+  .line { padding: 0; white-space: pre-wrap; word-break: break-word; }
+  .line.dim    { color: var(--dim); }
+  .line.accent { color: var(--accent); }
+  .line.red    { color: var(--red); }
+  .line.green  { color: var(--green); }
+  .line.yellow { color: var(--yellow); }
+  .line.bold   { color: #e8e8d8; }
+  .line.sep    { color: var(--dim); }
+
+  #input-row {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid #1e1e18;
+    padding: 8px 0 12px;
+    gap: 6px;
+  }
+
+  #prompt { color: var(--dim); flex-shrink: 0; }
+
+  #cmd {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--fg);
+    font-family: inherit;
+    font-size: inherit;
+    flex: 1;
+    caret-color: var(--cursor);
+  }
+
+  /* scrollbar */
+  #output::-webkit-scrollbar { width: 4px; }
+  #output::-webkit-scrollbar-track { background: transparent; }
+  #output::-webkit-scrollbar-thumb { background: #2a2a22; border-radius: 2px; }
+
+  /* status bar */
+  #statusbar {
+    display: flex;
+    gap: 16px;
+    padding: 6px 0;
+    border-bottom: 1px solid #1e1e18;
+    color: var(--dim);
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  #statusbar span { color: var(--fg); }
+  .sb-frac-low  { color: var(--green) !important; }
+  .sb-frac-mid  { color: var(--yellow) !important; }
+  .sb-frac-high { color: var(--red) !important; }
+</style>
+</head>
+<body>
+<div id="terminal">
+  <div id="statusbar">
+    <div id="sb-name">―</div>
+    <div id="sb-hp">HP: ―</div>
+    <div id="sb-room">Room: ―</div>
+    <div id="sb-frac">Fracture: ―</div>
+    <div id="sb-gun">Gun: None</div>
+    <div id="sb-scraps">Scraps: ―</div>
+  </div>
+  <div id="output"></div>
+  <div id="input-row">
+    <span id="prompt">&gt;&nbsp;</span>
+    <input id="cmd" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+
+const FLOORS = [
+  { name: "Ground Floor",  desc: "The lobby smells like a waiting room. Like the moment before bad news.",               theme: "lobby" },
+  { name: "Second Floor",  desc: "The carpet absorbs sound. You stop being able to hear yourself breathe.",              theme: "corridor" },
+  { name: "Third Floor",   desc: "The meetings here never concluded. The attendees never accepted that.",                theme: "conference" },
+  { name: "Fourth Floor",  desc: "The kitchen ran for nine days without staff. Something learned to cook itself.",       theme: "restaurant" },
+  { name: "Fifth Floor",   desc: "The water in the pool hasn't moved in a week. Neither have the things in it.",        theme: "spa" },
+  { name: "Sixth Floor",   desc: "The penthouse guest has been here longer than the building. The building knows this.", theme: "penthouse" },
+  { name: "The Roof",      desc: "You are outside. The sky is the wrong colour. Not wrong like a sunset. Wrong.",       theme: "roof" }
+];
+
+const ROOM_NAMES = {
+  lobby:      ["The Lobby","Check-In Desk","The Concierge's Station","Coat Check","The Bell Stand","The Vestibule","The Night Audit Office","Lost and Found","The Key Cabinet"],
+  corridor:   ["Room 201","Room 217","The Linen Closet","Ice Machine Alcove","The Stairwell","Room 213","The Service Corridor","Room 209","The Laundry Chute"],
+  conference: ["The Boardroom","Breakout Room A","Breakout Room B","The AV Closet","The Catering Station","Conference Hall C","The Green Room","The Projection Booth","Storage Room 3C"],
+  restaurant: ["The Dining Room","The Kitchen","Cold Storage","The Wine Cellar","The Bar","The Dumbwaiter Room","The Pantry","The Dish Room","The Walk-In Freezer"],
+  spa:        ["The Pool","Steam Room","The Treatment Suite","The Locker Room","The Sauna","The Relaxation Lounge","Hydrotherapy","The Supply Closet","The Utility Room"],
+  penthouse:  ["The Elevator Lobby","Room 601","The Private Dining Room","Room 604","The Study","Room 609","The Observatory Balcony","The Master Suite","The Panic Room"],
+  roof:       ["The Maintenance Catwalk","The Water Tower","The Antenna Array","The Rooftop Bar (Closed)","The Helipad","The Garden (Dead)","The Generator Room","The Edge","Room 70"]
+};
+
+const ROOM_DESCS = {
+  lobby: [
+    "The marble floor is cold. It has always been cold. Even in summer. Even before you arrived.",
+    "The concierge's hands are folded on the desk. They have been folded that way for a long time. The knuckles are wrong.",
+    "The guest book is open. The last entry is in handwriting that looks like yours when you're tired.",
+    "The elevator doors are closed. The floor indicator says B3. The hotel doesn't have a basement.",
+    "Every clock in the lobby shows a different time. None of them are moving.",
+    "The revolving door hasn't stopped since you walked in. No one else has come through it.",
+    "The luggage behind the concierge desk has name tags. You recognize one of the names. You shouldn't.",
+    "There is a children's drawing on the welcome board. It depicts the hotel. You are in it. You are on this floor.",
+    "The fire exits are propped open with things that used to be people's belongings.",
+    "The carpet absorbs your footsteps completely. You stop making sound when you walk."
+  ],
+  corridor: [
+    "The hallway is longer than the building's footprint allows. You've checked. Twice.",
+    "Every door has a DO NOT DISTURB sign. Every sign is frayed in the same place, as if handled by the same hands.",
+    "Something is under the carpet. It moves when you're not looking at it directly.",
+    "Room 217 has a light on. It had a light on when you checked in. You were the first guest.",
+    "The ice machine dispenses something. It is the right shape and the right temperature. It isn't ice.",
+    "You can hear a TV through one of the doors. The show is about a person walking down a hotel corridor.",
+    "The emergency exit signs are in red. The arrows point in different directions on each side of the same sign.",
+    "A housekeeping cart has been left in the middle of the hall. The towels are folded into a shape that isn't decorative.",
+    "The hallway smells like your childhood home. You lived in a house. There is no reason for this.",
+    "One of the room numbers is skipped. Where 208 should be, there is a wall that is slightly warmer than the others."
+  ],
+  conference: [
+    "Name placards at every seat. One of them has your name on it. The ink is dry. It was placed before you arrived.",
+    "Slide 47 of 47. The presentation has been running since before there were projectors in this room.",
+    "The whiteboard says AGENDA in large letters. Below it, in smaller letters: you.",
+    "Coffee cups still steaming. This is the fourth day. Coffee does not stay warm for four days.",
+    "The attendance sheet has been signed. Eighty-three signatures. You count them. The last one looks like yours.",
+    "The chairs are all pushed in except one. The empty one faces away from the projector. Toward the door. Toward you.",
+    "There is a handout on every seat. It is titled: WHAT HAPPENS NEXT. The pages are blank.",
+    "The meeting scheduled for this room has no end time. The calendar entry says: ONGOING.",
+    "A phone is ringing in the breakout room. When you answer it, it rings again.",
+    "The catering station has food laid out for a meeting that no one has attended. The food is still fresh. It has been a week."
+  ],
+  restaurant: [
+    "The kitchen is running. You can hear it from the corridor. You have been able to hear it since the ground floor.",
+    "A table in the corner is set for two. One of the place settings is used. The other is pristine. It has been waiting.",
+    "The specials board lists dishes made from ingredients that aren't on any menu you've ever seen.",
+    "The walk-in freezer is humming. The things hanging inside are not meat. They are not anything you have words for.",
+    "The sommelier's notebook is open on the bar. Every page is a review of the same wine. The ratings go from excellent to undrinkable over seven days. Today's entry is blank.",
+    "A half-finished meal sits at the bar. The fork is still in the food. The food is still warm. It has been a week.",
+    "The dish room is running. You can hear the sound of plates. There are no plates. There are no dishes. There is no water.",
+    "The dumbwaiter opens. It is empty. It closes. It opens. It is not empty. It closes before you can see.",
+    "The pantry door is locked from the inside. You can hear something rearranging the shelves.",
+    "The bar has one drink prepared on the counter. A napkin underneath it says: complimentary. For you. By name."
+  ],
+  spa: [
+    "The pool surface is completely flat. Water is not flat. Water has surface tension. This pool has something else.",
+    "The steam room is occupied. You can see shapes through the glass. They have too many joints.",
+    "The treatment schedule on the wall includes appointments for names you don't recognise. Your appointment is at 3am. Today.",
+    "The sauna temperature gauge is broken. Or it reads correctly. You can't tell anymore which one is worse.",
+    "The towels have been folded into shapes that are not animals. They are not decorative. They are deliberate.",
+    "The music in the relaxation lounge is classical. You recognize it. It is the song that was playing when something bad happened to you. You'd forgotten what that was. You remember now.",
+    "The hydrotherapy pool is drained. Something is written on the bottom. It takes you a moment to recognise your own handwriting.",
+    "The locker has a name on it. The name is yours. The locker was here before you arrived.",
+    "The supply closet has been opened and restocked recently. The supplies include things that are not cleaning products.",
+    "The mirror in the locker room shows a reflection that is almost right. It is slightly behind. Just slightly."
+  ],
+  penthouse: [
+    "The view is perfect. Too perfect. The city outside is arranged to be seen from exactly this angle. It is arranged for you.",
+    "Room service was delivered but not touched. The receipt is addressed to your name. The order is your usual. You've never eaten here.",
+    "The safe is open. It contains a key card, a photograph, and a note. The note says: you left these last time.",
+    "The phone is off the hook. The voice on the line is describing what you are doing right now. In real time.",
+    "The minibar has been emptied in a particular sequence. You understand the sequence. You don't know why.",
+    "Room 609 has no door. Where the door should be is a wall. The wall is painted to look like a door. It is painted in your favourite colour.",
+    "The master suite has a suitcase on the bed. The clothes inside are yours. The sizes are right. They are clean.",
+    "The observatory balcony has marks on the railing. Handprints. Facing inward. Someone held on.",
+    "The panic room is unlocked. The inside has been lived in. The calendar on the wall stops on today's date.",
+    "The study has books with your name on the spines. You didn't write them. They are about you."
+  ],
+  roof: [
+    "The city is too far down. The hotel is not tall enough for the city to look this far away.",
+    "The antenna array is broadcasting. You can almost hear what it's saying. You keep not quite catching it.",
+    "The helipad has a helicopter on it. The helicopter's door is open. There is luggage inside. It is your luggage.",
+    "The rooftop bar is closed. The chairs are stacked. One chair is not stacked. It faces the edge.",
+    "The dead garden has plants that are growing wrong. Not dying. Growing. Just wrong.",
+    "The generator is running. It powers the hotel. The hotel doesn't appear to be connected to it.",
+    "The water tower casts a shadow in the wrong direction. The shadow is the right shape for a person.",
+    "The edge is not where it was. You measured it before you came up. It has moved closer.",
+    "The maintenance catwalk goes further than the building. It ends somewhere you cannot see from here.",
+    "The exit stairs are locked from the outside. Someone has written on the door: YOU WERE SO CLOSE."
+  ]
+};
+
+const ROOM_LORE = [
+  "The guest registry lists your name 47 times across the last 30 years. The handwriting changes each time. It's always yours.",
+  "A child's drawing is taped to the wall. A dog standing in a hotel corridor. The dog is holding something. You can't make out what.",
+  "The housekeeping log marks your room as occupied for seven days. You checked in this morning.",
+  "An amenity card lists the hotel's services: concierge, laundry, turndown, memory retention, departure assistance.",
+  "The hotel was reviewed online. Every review is five stars. Every review says the same thing: I didn't want to leave.",
+  "A fire safety card in the nightstand has been annotated in pen. Someone has crossed out every exit.",
+  "You find a phone number written on a napkin. You don't call it. You recognise it. It's yours.",
+  "The housekeeping log has an entry: 'Guest in room 412 has not moved in four days. Do not disturb.'",
+  "A room key on the floor opens a room you haven't reached yet. The key is warm.",
+  "The wallpaper has a pattern that repeats. The pattern is not decorative. It is a map. You are on it.",
+  "The hotel's founding plaque reads 1962. Below the date, in smaller letters: WE WERE HERE BEFORE THAT.",
+  "You find a photograph of the hotel's original staff. They are all smiling. None of them cast shadows.",
+  "A noise complaint form, filled out in your handwriting, dated six days from now, describing what you are doing right now.",
+  "The emergency procedures card says: in case of fracture, do not attempt to leave. The hotel will handle it.",
+  "The newspaper on the welcome desk is from last week. The headline reads: LOCAL RESIDENT ADMITTED TO HOSPITAL. The name is yours.",
+  "A note under your door: 'We noticed you've been trying to reach floor 7. We've extended your reservation.'",
+  "The room service menu has a section called FINAL ORDERS. It is not a joke. The items are your favourite foods.",
+  "You find a diary. The handwriting deteriorates across its pages, becoming something else. The last entry is today.",
+  "A mirror in the stairwell reflects you on a different floor. You watch yourself walk past. You are not on that floor.",
+  "The hotel's checkout form asks: what would you like to forget? The field is pre-filled."
+];
+
+const FLOOR_BOSS_NAMES = [
+  "The Head Concierge","The Night Manager","The Banquet Director",
+  "The Executive Chef","The Spa Director","The Penthouse Guest","The Hotel Itself"
+];
+
+const FLOOR_BOSS_DESCS = [
+  "It has been standing at that desk since before you were born. It was standing there when your parents were born. It was standing there when the concept of hotels was invented. It is still smiling.",
+  "It works the overnight shift. It has always worked the overnight shift. There are no day shifts. There have never been day shifts.",
+  "It organised an event for every person who has stayed in this hotel. They are all still here. They are all in this room. You can't see them because they have learned to be very still.",
+  "It has been cooking the same thing for nine days. The smell has changed four times. The fourth smell is the one that doesn't have a name.",
+  "It offers treatments for conditions that don't have medical names. Your chart is already prepared. It has been prepared for a long time.",
+  "It checked in without luggage, without a name, without a checkout date. The room has expanded around it.",
+  "The building became aware sometime around the fourth decade. It simply began to want. This is the accumulated result of forty years of wanting."
+];
+
+const FLOOR_BOSS_LINES = [
+  ["We put your name on the reservation before you knew you were coming.","The smile is genuine. I want you to know that.","Your key card was cut three years before you arrived. We had faith.","You look tired. The hotel noticed. The hotel notices everything."],
+  ["Check-out is at eleven. You've missed eleven every day this week.","The previous guest tried the same thing. They're on the fourth floor now. In the carpet.","The hotel has a loyalty programme. You've been enrolled since birth."],
+  ["Your name has been on the agenda for some time.","The meeting's purpose is you. The outcome has already been agreed.","Please take a seat. The one facing away from the projector. It was left for you."],
+  ["The dish I'm preparing takes nine days. You arrived on day one.","Every guest who reaches this floor becomes an ingredient eventually.","I've been cooking a long time. I know what things are before they know what they are."],
+  ["Your appointment was made before you arrived. Before you existed, technically.","Relax. The word relax means something different here. Here it means stop.","Every guest leaves lighter. They leave things behind. You have quite a lot to leave."],
+  ["I checked in looking for something I'd lost. I'm still looking. The looking became me.","You and I are the same thing at different points in the same process.","I don't remember my name. The hotel gave me a new one. The hotel will give you one too."],
+  ["You are the seven thousandth guest. We've been waiting for you specifically.","I am not the staff. I am not the guests. I am the accumulation of every night that has ever happened here.","The exit is real. You can reach it. I want you to know what you'll be when you do."]
+];
+
+const ENEMY_POOL = {
+  lobby: [
+    { name:"The Concierge",       hp:[14,22], atk:[5,8],  def:[2,4], desc:"It has been smiling since before you arrived. The smile has not reached its eyes because it does not have eyes. It has something that functions similarly." },
+    { name:"The Bellhop",         hp:[12,18], atk:[4,7],  def:[1,3], desc:"It carries luggage that doesn't exist. The weight of it is real. You can hear it." },
+    { name:"The Revolving Door",  hp:[18,26], atk:[6,9],  def:[3,5], desc:"It has been turning since you walked in. It will still be turning when you're gone. It will still be turning after that." },
+    { name:"The Night Auditor",   hp:[16,24], atk:[5,8],  def:[2,4], desc:"It balances accounts that don't add up. It has been balancing them for nine days. They still don't add up. It doesn't stop." }
+  ],
+  corridor: [
+    { name:"The Housekeeper",     hp:[14,20], atk:[5,8],  def:[2,3], desc:"Cleaning a stain that predates the carpet. Cleaning it with something that isn't a cloth. Not stopping." },
+    { name:"Room 217",            hp:[20,28], atk:[7,10], def:[3,5], desc:"The room learned to move. It moves when there's somewhere it needs to be. Right now it needs to be here." },
+    { name:"The DO NOT DISTURB",  hp:[10,16], atk:[4,6],  def:[1,2], desc:"A concept that refused to remain conceptual. It does not want to be looked at. Looking at it is the wrong choice." },
+    { name:"The Ice Machine",     hp:[16,22], atk:[5,8],  def:[4,6], desc:"Running without stopping for nine days. What it produces is cold and wrong-shaped and it keeps producing it." }
+  ],
+  conference: [
+    { name:"The Presenter",       hp:[16,24], atk:[6,9],  def:[2,4], desc:"Slide 47. It has been slide 47 for four days. The slide is about you. The slide has always been about you." },
+    { name:"The Attendee",        hp:[12,18], atk:[4,7],  def:[1,3], desc:"It has questions. Every answer generates more questions. It will not stop having questions. It is getting closer." },
+    { name:"The Agenda",          hp:[14,20], atk:[5,8],  def:[2,4], desc:"Itemised. All items relate to you. All items are scheduled. You are behind schedule." },
+    { name:"The AV System",       hp:[18,26], atk:[7,10], def:[3,5], desc:"Broadcasting something on a loop. Not audio. Not video. Something else." }
+  ],
+  restaurant: [
+    { name:"The Sous Chef",       hp:[18,26], atk:[7,10], def:[3,4], desc:"Still at the stove. Won't leave. Has been at the stove for nine days. The dish isn't finished. The dish will never be finished. The chef doesn't know this yet." },
+    { name:"The Sommelier",       hp:[14,20], atk:[5,8],  def:[2,4], desc:"It recommends something that isn't in a bottle. It describes the notes: grief, copper, the smell of a room you grew up in." },
+    { name:"The Dumbwaiter",      hp:[12,18], atk:[4,7],  def:[3,5], desc:"It goes up. What comes down is wrong. Not damaged. Just wrong. It goes up again immediately." },
+    { name:"The Walk-In Freezer", hp:[22,30], atk:[6,9],  def:[5,7], desc:"Cold in ways that have nothing to do with temperature. You feel it before you open it. You feel it now and you haven't opened it." }
+  ],
+  spa: [
+    { name:"The Massage Table",   hp:[14,20], atk:[4,7],  def:[4,6], desc:"The table holds. That is what tables do. This table holds with intent." },
+    { name:"The Pool",            hp:[20,28], atk:[6,9],  def:[3,5], desc:"The surface hasn't moved in six days. Water moves. This isn't water anymore. It has made a different decision." },
+    { name:"The Towel Arrangement",hp:[10,16], atk:[5,8], def:[1,3], desc:"Folded into a shape that isn't decorative. The shape means something. You almost recognise it." },
+    { name:"The Sauna",           hp:[18,26], atk:[8,11], def:[2,4], desc:"Temperature: 180°. Temperature: 200°. Temperature: a number that appears on no gauge made by humans." }
+  ],
+  penthouse: [
+    { name:"The Room Service",    hp:[16,24], atk:[6,9],  def:[2,4], desc:"Delivered. Waiting. It has been waiting. It will wait for as long as required. It knows how long that is." },
+    { name:"The Safe",            hp:[20,28], atk:[7,10], def:[5,7], desc:"Open. Full of key cards. Each one opens a room you haven't reached. Each one is warm." },
+    { name:"The View",            hp:[14,20], atk:[5,8],  def:[2,3], desc:"Attractive. Wrong. It looks back. It has been looking back since before you came upstairs." },
+    { name:"The Penthouse Guest", hp:[22,30], atk:[8,12], def:[3,5], desc:"Checked in. No checkout date. No luggage. No name. Room 609 has expanded to accommodate it." }
+  ],
+  roof: [
+    { name:"The Sign",            hp:[18,26], atk:[6,9],  def:[3,5], desc:"The letters rearrange when you're not watching. You've been watching. They rearrange anyway. The new arrangement spells your name." },
+    { name:"The Wind",            hp:[12,18], atk:[7,10], def:[1,3], desc:"Blows in one direction. Always the same direction. Toward the edge. Patient." },
+    { name:"The Dead Garden",     hp:[16,22], atk:[5,8],  def:[4,6], desc:"Nothing alive here. Except the growing. The plants are growing wrong. Not toward light. Toward you." },
+    { name:"The Edge",            hp:[20,28], atk:[9,13], def:[2,4], desc:"It was further away earlier. You measured. It has moved. It moves toward you when you look away. You cannot stop looking away forever." }
+  ]
+};
+
+const HOTEL_GUNS = [
+  { name:"Desk Clerk's Pistol",  desc:"Found in the lost and found. Someone checked in with it and forgot it was theirs.", dmgMin:8,  dmgMax:14, shells:1, effect:null },
+  { name:"Security Rifle",       desc:"The hotel security team used these. The team is gone. The rifles stayed.",           dmgMin:16, dmgMax:26, shells:2, effect:"suppress" },
+  { name:"Panic Room Shotgun",   desc:"Bolted inside the panic room on floor six. Someone unbolted it and left it in the hall.", dmgMin:12, dmgMax:20, shells:3, effect:"aoe" }
+];
+
+const RANDOM_EVENTS_HORROR = [
+  { type:"damage",  text:"The lights go out.\nThey come back on.\nSomething has moved. Not the furniture.\nYou.\nYou are in a different part of the corridor than you were.\nYou don't remember moving.", dmg:true },
+  { type:"frac",    text:"You see yourself at the end of the corridor.\nYou are walking away from you.\nYou don't remember being there.", frac:[8,14] },
+  { type:"frac",    text:"The phone in the nearest room is ringing.\nYou answer it.\nYour own voice says: don't come here.\nYou are already here.", frac:[6,12] },
+  { type:"frac",    text:"A child is sitting in the corridor.\nIt looks up.\nIt has your eyes.\nNot similar eyes. Your eyes.\nYou still have your eyes.\nBoth of you do.", frac:[10,16] },
+  { type:"frac",    text:"You find a mirror that doesn't show the corridor.\nIt shows a room.\nYou recognise the room.\nSomeone is in it. They are looking at something.\nThe something is you.", frac:[8,14] },
+  { type:"frac",    text:"You find a note on the floor.\nIt's in your handwriting.\nIt describes this corridor. This exact point. This exact moment.\nIt was written before you arrived.\nThe last line says: you haven't found the worst part yet.", frac:[12,18] },
+  { type:"frac",    text:"Your shadow is on the wrong wall.\nThen it's on the ceiling.\nThen it's gone.\nYou are still casting it. You just can't see where it went.", frac:[7,13] },
+  { type:"frac",    text:"You catch your reflection in a window.\nIt doesn't move when you move.\nIt watches you figure out that it isn't moving.\nThen it moves. Just once. Just slightly.\nIn a direction your body doesn't go.", frac:[10,16] }
+];
+
+const RANDOM_EVENTS_GOOD = [
+  { type:"scraps",  text:"A wallet on the floor. Still warm.\nThe ID inside has a photo. The photo is of someone who looks almost like you.", amount:[6,16] },
+  { type:"shells",  text:"Shells in a drawer. Still in the box.\nThe box has hotel stationary inside it. A note that says: you'll need these.\nThe note is in your handwriting. Dated from before you arrived.", amount:[1,3] },
+  { type:"bandage", text:"A first aid kit in the hallway. Opened. Used. Restocked.\nThe wrapping on the bandages has your blood type printed on it.\nThe hotel knew." },
+  { type:"voucher", text:"A room service voucher under your door.\nAddressed to you. Your full name.\nThe hotel delivered this before you told them your name." }
+];
+
+const ATTACK_LINES = [
+  "moves toward you in a way that isn't walking.",
+  "reaches. The reach is wrong. Too long.",
+  "makes a sound. The sound means something. You don't know what.",
+  "doesn't hesitate. It has never hesitated.",
+  "is faster than it should be given what it is.",
+  "closes distance. You didn't see it move."
+];
+
+const BOSS_PASSIVE_LINES = [
+  "doesn't attack. It looks at you. The looking is worse than an attack.",
+  "says your name. Not to you. To itself. Like it's remembering.",
+  "gestures toward the door. The door is gone. It wasn't gone before.",
+  "turns away. The back of its head is wrong. You can't stop looking at it.",
+  "produces something. It looks like your room key. It is your room key.",
+  "recites something. A list. The list is things you were hoping no one knew.",
+  "is patient. Its patience fills the room. There is no space left for you."
+];
+
+// ============================================================
+// ENGINE
+// ============================================================
+
+function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+let G = null; // game state
+
+function newGame(name, difficulty) {
+  const dm = difficulty === "gentle" ? 0.75 : difficulty === "cruel" ? 1.3 : 1.0;
+  const fm = difficulty === "gentle" ? 0.6  : difficulty === "cruel" ? 1.4 : 1.0;
+  const er = difficulty === "gentle" ? 0.50 : difficulty === "cruel" ? 0.90 : 0.75;
+
+  G = {
+    phase: "play",   // title | warning | name | difficulty | about | play | combat | gun | search | done
+    name,
+    difficulty,
+    damageMult: dm,
+    fractureMult: fm,
+    encounterRate: er,
+
+    // player
+    hp: 45, maxHp: 45,
+    atk: 9, def: 4, spd: 10,
+    scraps: 80,
+    bandage: 3, roomService: 0,
+    fracture: 0,
+    shells: 0,
+    gun: null,
+
+    // hotel
+    rooms: [],
+    currentRoom: 0,
+    roomsCleared: 0,
+
+    // combat
+    inCombat: false,
+    enemy: null,
+    atbPlayer: 0,
+    atbEnemy: 0,
+    combatDefBonus: 0,
+
+    // pending input
+    pendingConfirm: null,  // { type, data, yes, no }
+  };
+  buildHotel();
+}
+
+function buildHotel() {
+  G.rooms = [];
+  let roomNum = 1;
+  FLOORS.forEach((floor, floorIdx) => {
+    const theme = floor.theme;
+    const names = ROOM_NAMES[theme].slice();
+    const descs = ROOM_DESCS[theme].slice();
+    for (let i = 0; i < 10; i++) {
+      const isBoss = (i === 9);
+      const name = isBoss ? FLOOR_BOSS_NAMES[floorIdx] + "'s Domain" : (names[i] || floor.name + " Room " + (i+1));
+      const desc = isBoss ? floor.desc : pick(descs);
+      const lore = Math.random() < 0.5 ? pick(ROOM_LORE) : null;
+      const room = { number: roomNum, name, desc, lore, floor: floorIdx+1, theme, isBoss, visited: false, enemy: null, combatTriggered: false };
+      if (isBoss) {
+        room.enemy = genBoss(floorIdx);
+      } else if (Math.random() < G.encounterRate) {
+        room.enemy = genEnemy(theme);
+      }
+      G.rooms.push(room);
+      roomNum++;
+    }
+  });
+}
+
+function genEnemy(theme) {
+  const pool = ENEMY_POOL[theme] || ENEMY_POOL.lobby;
+  const e = pick(pool);
+  return { name: e.name, hp: ri(e.hp[0], e.hp[1]), maxHp: 0, atk: ri(e.atk[0], e.atk[1]), def: ri(e.def[0], e.def[1]), spd: 9, desc: e.desc, isBoss: false };
+}
+
+function genBoss(fi) {
+  const hp = 30 + fi*15 + ri(10,20);
+  return { name: FLOOR_BOSS_NAMES[fi], hp, maxHp: hp, atk: 10+fi*2+ri(2,5), def: 5+fi, spd: 11, desc: FLOOR_BOSS_DESCS[fi], isBoss: true };
+}
+
+function curRoom() { return G.rooms[G.currentRoom]; }
+
+// ============================================================
+// OUTPUT
+// ============================================================
+
+const out = document.getElementById("output");
+
+function print(text, cls) {
+  const lines = String(text).split("\n");
+  lines.forEach(l => {
+    const div = document.createElement("div");
+    div.className = "line" + (cls ? " " + cls : "");
+    div.textContent = l;
+    out.appendChild(div);
+  });
+  out.scrollTop = out.scrollHeight;
+}
+
+function blank() { print(""); }
+
+function printSep(char, len) { print((char||"─").repeat(len||50), "sep dim"); }
+
+function updateStatusBar() {
+  if (!G) return;
+  const r = curRoom();
+  const floorName = r ? FLOORS[r.floor-1].name : "―";
+  document.getElementById("sb-name").innerHTML = G.name;
+  document.getElementById("sb-hp").innerHTML = `HP: <span style="color:${G.hp < G.maxHp*0.3?"var(--red)":G.hp < G.maxHp*0.6?"var(--yellow)":"var(--green)"}">${G.hp}/${G.maxHp}</span>`;
+  document.getElementById("sb-room").innerHTML = `${floorName} · Room <span>${G.currentRoom+1}/70</span>`;
+  const fc = G.fracture < 30 ? "sb-frac-low" : G.fracture < 70 ? "sb-frac-mid" : "sb-frac-high";
+  document.getElementById("sb-frac").innerHTML = `Fracture: <span class="${fc}">${G.fracture}/100</span>`;
+  document.getElementById("sb-gun").innerHTML = G.gun ? `Gun: <span>${G.gun.name} [${G.shells}sh]</span>` : "Gun: <span>None</span>";
+  document.getElementById("sb-scraps").innerHTML = `Scraps: <span>${G.scraps}</span>`;
+}
+
+// ============================================================
+// TITLE / SETUP FLOW
+// ============================================================
+
+let setupPhase = "title";
+let pendingDifficulty = "normal";
+let pendingName = "";
+
+function startTitle() {
+  setupPhase = "title";
+  out.innerHTML = "";
+  print(`
+██████╗ ███████╗    ██╗  ██╗
+██╔══██╗██╔════╝    ██║  ██║
+██║  ██║█████╗      ███████║
+██║  ██║██╔══╝      ╚════██║
+██████╔╝██║              ██║
+╚═════╝ ╚═╝              ╚═╝`, "accent");
+  blank();
+  print("D A R K   F L O O F   I V", "bold");
+  print("T H E   O V E R N I G H T", "dim");
+  blank();
+  print("One week before the hospital.", "dim");
+  print("70 rooms.", "dim");
+  print("Everything in the hotel wants you to stay.", "dim");
+  blank();
+  print("1. Check In");
+  print("2. About");
+  print("3. Difficulty  [" + pendingDifficulty + "]");
+  print("4. Quit");
+  blank();
+  setPrompt(">");
+}
+
+function showAbout() {
+  blank();
+  print("You needed somewhere to stay.");
+  print("The hotel had availability.");
+  print("It always has availability.");
+  blank();
+  print("Seven floors. Ten rooms each.");
+  print("The staff are helpful. The guests are persistent.");
+  print("The building has opinions.");
+  blank();
+  print("You need to reach room 70.");
+  print("You need to get out.");
+  print("The hotel has other plans.");
+  blank();
+  print("This is the week that explains everything that comes after.");
+  blank();
+  print("(type anything to return)", "dim");
+  setupPhase = "about";
+}
+
+function showWarning() {
+  blank();
+  printSep("═");
+  print("  CONTENT WARNING", "yellow");
+  printSep("═");
+  blank();
+  print("  Dark Floof IV contains themes that some players");
+  print("  may find distressing, including:");
+  blank();
+  print("   - Psychological horror and uncanny environments");
+  print("   - Hospitalization, trauma, and its causes");
+  print("   - A protagonist in the process of breaking down");
+  print("   - Themes of entrapment and loss of control");
+  blank();
+  print("  This game is a prequel to a hospitalization.");
+  print("  The protagonist does not come out of this well.");
+  blank();
+  print("  If you are in a difficult place right now, please");
+  print("  reach out to someone who can help.");
+  blank();
+  print("  Crisis line (US): 988 Suicide & Crisis Lifeline", "dim");
+  print("  Text: HOME to 741741 (Crisis Text Line)", "dim");
+  print("  International: findahelpline.com", "dim");
+  blank();
+  printSep("═");
+  blank();
+  print("  Type CONTINUE to proceed, or QUIT to exit.");
+  setupPhase = "warning";
+}
+
+function askName() {
+  blank();
+  print("The concierge looks up.");
+  print('"Name?"');
+  blank();
+  setupPhase = "name";
+}
+
+function handleSetup(cmd) {
+  const c = cmd.trim().toLowerCase();
+  if (setupPhase === "title") {
+    if (c === "1") { showWarning(); }
+    else if (c === "2") { showAbout(); }
+    else if (c === "3") {
+      setupPhase = "difficulty";
+      blank();
+      print("1. Gentle  — lighter enemies, slower fracture");
+      print("2. Normal");
+      print("3. Cruel   — full staff, fast fracture, hard hits");
+    }
+    else if (c === "4") { print("The hotel will be here when you're ready.", "dim"); }
+  }
+  else if (setupPhase === "about") { startTitle(); }
+  else if (setupPhase === "warning") {
+    if (c === "quit") { print("Take care of yourself.", "dim"); setupPhase = "title"; }
+    else if (c === "continue") { askName(); }
+    else { print("Type CONTINUE to proceed.", "dim"); }
+  }
+  else if (setupPhase === "difficulty") {
+    if (c === "1") pendingDifficulty = "gentle";
+    else if (c === "3") pendingDifficulty = "cruel";
+    else pendingDifficulty = "normal";
+    print("Difficulty: " + pendingDifficulty, "accent");
+    startTitle();
+  }
+  else if (setupPhase === "name") {
+    const name = cmd.trim() || "Guest";
+    pendingName = name;
+    newGame(name, pendingDifficulty);
+    blank();
+    print('"Room 101," the concierge says.', "dim");
+    print(`"Enjoy your stay, ${name}."`, "dim");
+    print('"We hope you find what you\'re looking for."', "dim");
+    blank();
+    print("(The smile doesn't reach its eyes. It doesn't have eyes, exactly.)", "dim");
+    blank();
+    setupPhase = "play";
+    showStatus();
+    describeRoom();
+    updateStatusBar();
+  }
+}
+
+// ============================================================
+// GAME COMMANDS
+// ============================================================
+
+function setPrompt(p) {
+  document.getElementById("prompt").textContent = (p || ">") + " ";
+}
+
+function showStatus() {
+  if (!G) return;
+  const r = curRoom();
+  const floorName = r ? FLOORS[r.floor-1].name : "?";
+  blank();
+  printSep();
+  print(`[${G.name} | ${floorName} | Room ${G.currentRoom+1}/70]`, "accent");
+  print(`HP: ${G.hp}/${G.maxHp} | Scraps: ${G.scraps}`, G.hp < G.maxHp*0.3 ? "red" : "");
+  print(`Fracture: ${G.fracture}/100`, G.fracture >= 70 ? "red" : G.fracture >= 40 ? "yellow" : "");
+  print(`Bandages: ${G.bandage} | Room Service: ${G.roomService}`);
+  print(G.gun ? `Gun: ${G.gun.name} | Shells: ${G.shells}` : `Gun: None | Shells: ${G.shells}`);
+  printSep();
+}
+
+function fractureTick() {
+  const f = G.fracture;
+  if (f >= 15 && f < 30)  print("(The carpet has a smell you recognise from somewhere you haven't been.)", "dim");
+  else if (f >= 30 && f < 45) print("(A crack in the wall. It wasn't there when you entered. The crack is the exact width of a finger.)", "dim");
+  else if (f >= 45 && f < 60) print("(You catch yourself listening for your name. You keep almost hearing it.)", "dim");
+  else if (f >= 60 && f < 75) print("(The lights are the right brightness. The shadows are the wrong length.)", "dim");
+  else if (f >= 75 && f < 90) print("(You check your reflection. The reflection checks back. A half-second late.)", "dim");
+  else if (f >= 90)           print("(The hotel is almost finished with you. You can feel it. Like a conversation winding down.)", "red");
+}
+
+function describeRoom(forceLore) {
+  if (!G) return;
+  const r = curRoom();
+  if (!r) return;
+  blank();
+  const floorName = FLOORS[r.floor-1].name;
+  print(`[${floorName} — Room ${r.number}]`, "dim");
+  print(r.isBoss ? `=== ${r.name} ===` : r.name, "bold");
+  print(r.desc);
+  if (r.lore && (!r.visited || forceLore)) print(r.lore, "dim");
+  r.visited = true;
+  fractureTick();
+  blank();
+  if (r.enemy && r.enemy.hp > 0) {
+    if (r.isBoss) {
+      print(r.enemy.name, "yellow");
+      print(`"${pick(FLOOR_BOSS_LINES[r.floor-1])}"`, "dim");
+      print("(You must defeat it to advance.)", "dim");
+    } else {
+      print(r.enemy.name, "yellow");
+      print(r.enemy.desc, "dim");
+      print("(Type FIGHT to engage.)", "dim");
+    }
+    if (!r.combatTriggered) {
+      r.combatTriggered = true;
+      blank();
+      if (r.isBoss) print("It doesn't let you think about it.", "dim");
+      startCombat(r.enemy);
+      return;
+    }
+  } else {
+    print("(The room is clear. Type NEXT to advance.)", "dim");
+  }
+}
+
+function handlePlay(cmd) {
+  const c = cmd.trim().toLowerCase();
+
+  if (G.pendingConfirm) {
+    const pc = G.pendingConfirm;
+    G.pendingConfirm = null;
+    if (c === "y" || c === "yes") pc.yes();
+    else pc.no();
+    updateStatusBar();
+    return;
+  }
+
+  if (G.inCombat) { handleCombatInput(cmd); updateStatusBar(); return; }
+
+  switch(c) {
+    case "next": case "n": case "forward": advanceRoom(); break;
+    case "look": case "l": describeRoom(true); break;
+    case "fight": case "attack": case "battle": fightCurrentRoom(); break;
+    case "search": searchRoom(); break;
+    case "status": showStatus(); break;
+    case "gun": showGunMenu(); break;
+    case "rest": doRest(); break;
+    case "help": showHelp(); break;
+    case "quit": case "exit":
+      blank();
+      print("The hotel notes your departure attempt.", "dim");
+      print("It is, as always, optimistic about your return.", "dim");
+      setupPhase = "title";
+      G = null;
+      startTitle();
+      return;
+    default:
+      print("The hotel doesn't recognise that.", "dim");
+  }
+  updateStatusBar();
+  if (G && !G.inCombat && G.currentRoom < 70 && G.hp > 0) {
+    // don't auto-redescribe after every command, just update bar
+  }
+}
+
+function showHelp() {
+  blank();
+  print("=== COMMANDS ===", "accent");
+  print("look / l    — describe current room");
+  print("next        — advance to the next room (if clear)");
+  print("fight       — fight the enemy in this room");
+  print("search      — search the room for supplies");
+  print("status      — full status");
+  print("gun         — manage your gun");
+  print("rest        — rest to recover HP (costs 20 scraps)");
+  print("help        — this list");
+  print("quit        — give up");
+}
+
+function advanceRoom() {
+  const r = curRoom();
+  if (r && r.enemy && r.enemy.hp > 0) { print("Something is still in your way.", "dim"); return; }
+  if (G.currentRoom >= 69) {
+    G.currentRoom = 70;
+    checkWinLose();
+    return;
+  }
+  const oldFloor = curRoom().floor;
+  G.currentRoom++;
+  G.roomsCleared++;
+  const newRoom = curRoom();
+  if (newRoom.floor > oldFloor) {
+    blank();
+    printSep("═");
+    print("  " + FLOORS[newRoom.floor-1].name.toUpperCase(), "bold");
+    print("  " + FLOORS[newRoom.floor-1].desc, "dim");
+    printSep("═");
+    const fg = Math.round(ri(3,7) * G.fractureMult);
+    addFracture(fg);
+    print(`Moving between floors. +${fg} Fracture.`, "dim");
+  }
+  tryRandomEvent();
+  if (G.hp > 0 && G.currentRoom < 70) {
+    showStatus();
+    describeRoom();
+  }
+  checkWinLose();
+}
+
+function tryRandomEvent() {
+  if (Math.random() > 0.40) return;
+  const roll = Math.random();
+  if (roll < 0.15) {
+    const dmg = ri(3,8);
+    G.hp = Math.max(0, G.hp - dmg);
+    blank();
+    print("The lights go out.\nThey come back on.\nSomething has moved. Not the furniture.\nYou.\nYou are in a different part of the corridor than you were.\nYou don't remember moving.", "dim");
+    print(`-${dmg} HP.`, "red");
+  } else if (roll < 0.30) {
+    const ev = pick(RANDOM_EVENTS_HORROR);
+    blank();
+    print(ev.text, "dim");
+    if (ev.frac) {
+      const f = Math.round(ri(ev.frac[0], ev.frac[1]) * G.fractureMult);
+      addFracture(f);
+      print(`+${f} Fracture.`, "red");
+    }
+    if (ev.dmg) {
+      const d = ri(3,8);
+      G.hp = Math.max(0, G.hp - d);
+      print(`-${d} HP.`, "red");
+    }
+  } else if (roll < 0.45) {
+    const ev = pick(RANDOM_EVENTS_GOOD);
+    blank();
+    print(ev.text, "dim");
+    if (ev.type === "scraps") { const a = ri(ev.amount[0], ev.amount[1]); G.scraps += a; print(`+${a} scraps.`, "green"); }
+    else if (ev.type === "shells") { const a = ri(ev.amount[0], ev.amount[1]); G.shells += a; print(`+${a} shells.`, "green"); }
+    else if (ev.type === "bandage") { G.bandage++; print("+1 bandage.", "green"); }
+    else if (ev.type === "voucher") { G.roomService++; print("+1 room service voucher.", "green"); }
+  } else if (roll < 0.55) {
+    blank();
+    print(pick(ROOM_LORE), "dim");
+    const f = Math.round(ri(2,6) * G.fractureMult);
+    addFracture(f);
+    print(`+${f} Fracture.`, "red");
+  } else if (roll < 0.65 && !G.gun) {
+    const gun = pick(HOTEL_GUNS);
+    blank();
+    print(`${gun.name}.`);
+    print(gun.desc, "dim");
+    print("Take it? (y/n)", "accent");
+    G.pendingConfirm = {
+      yes: () => { G.gun = gun; print(`You take the ${gun.name}.`, "green"); updateStatusBar(); },
+      no:  () => { print("You leave it.", "dim"); }
+    };
+  }
+  checkWinLose();
+}
+
+function addFracture(n) {
+  G.fracture = clamp(G.fracture + n, 0, 100);
+  if (G.fracture >= 100) { setTimeout(() => fractureCollapse(), 200); }
+}
+
+function fractureCollapse() {
+  blank();
+  printSep("═");
+  print("The hotel wins.", "yellow");
+  blank();
+  print("Not with a fight.", "dim");
+  print("Not with violence.", "dim");
+  print("With patience.", "dim");
+  blank();
+  print("The walls stop being walls.", "dim");
+  print("Not suddenly. Gradually.", "dim");
+  print("The way something you relied on gradually stops being reliable.", "dim");
+  blank();
+  print(`${G.name} stops being able to tell`, "dim");
+  print("what is corridor and what is not.", "dim");
+  blank();
+  print("The hotel has been preparing for this.", "dim");
+  print("The hotel prepares for all of its guests.", "dim");
+  print("Some guests it prepares for more than others.", "dim");
+  blank();
+  print("You were one of the others.", "dim");
+  blank();
+  print("An ambulance is called. Not by you.", "dim");
+  print("You can't remember how to use a phone.", "dim");
+  blank();
+  print("The hospital that receives you is the one from the other games.", "dim");
+  print("Beneath that hospital: the library.", "dim");
+  print("This is how you get there.", "dim");
+  blank();
+  printSep("═");
+  G.phase = "done";
+  G.hp = 0;
+  updateStatusBar();
+  blank();
+  print("(type anything to return to title)", "dim");
+  setupPhase = "done";
+}
+
+function fightCurrentRoom() {
+  const r = curRoom();
+  if (!r || !r.enemy || r.enemy.hp <= 0) { print("Nothing here to fight.", "dim"); return; }
+  startCombat(r.enemy);
+}
+
+function startCombat(enemy) {
+  enemy.maxHp = enemy.maxHp || enemy.hp;
+  G.inCombat = true;
+  G.enemy = enemy;
+  G.atbPlayer = 0;
+  G.atbEnemy = 0;
+  G.combatDefBonus = 0;
+  blank();
+  printSep("─");
+  print(`[${enemy.name}]`, "yellow");
+  print(enemy.desc, "dim");
+  printSep("─");
+  if (enemy.isBoss) {
+    print(`"${pick(FLOOR_BOSS_LINES[curRoom().floor-1])}"`, "dim");
+    blank();
+  }
+  showCombatStatus();
+  promptCombat();
+}
+
+function showCombatStatus() {
+  blank();
+  print(`--- COMBAT ---`, "dim");
+  print(`YOU: HP ${G.hp}/${G.maxHp} | Fracture: ${G.fracture}`, G.hp < G.maxHp*0.3 ? "red" : "");
+  print(`${G.enemy.name}: HP ${G.enemy.hp}/${G.enemy.maxHp}`);
+  print(`--------------`, "dim");
+}
+
+function promptCombat() {
+  const gunLabel = G.gun ? `Shoot [${G.shells}sh]` : "Shoot [no gun]";
+  print(`Your turn: 1. Attack  2. Item  3. Guard  4. ${gunLabel}`, "accent");
+}
+
+function handleCombatInput(cmd) {
+  const c = cmd.trim();
+  const e = G.enemy;
+
+  if (c === "fkill") { e.hp = 0; print(".", "dim"); endCombatCheck(); return; }
+
+  let acted = false;
+  if (c === "1") {
+    const dmg = Math.max(1, Math.round((G.atk - e.def) * G.damageMult));
+    e.hp = Math.max(0, e.hp - dmg);
+    print(`You hit ${e.name} for ${dmg}.`);
+    if (e.hp <= 0) print(`${e.name} collapses.`, "green");
+    acted = true;
+  } else if (c === "2") {
+    acted = useCombatItem();
+  } else if (c === "3") {
+    G.combatDefBonus = 2;
+    print("You brace against the wall.", "dim");
+    acted = true;
+  } else if (c === "4") {
+    acted = shootCombat();
+  } else {
+    print("You freeze. The hotel doesn't.", "dim");
+    acted = true;
+  }
+
+  if (!acted) return;
+  endCombatCheck();
+}
+
+function useCombatItem() {
+  blank();
+  print(`Items: 1. Bandage (${G.bandage})  2. Room Service (${G.roomService})`, "accent");
+  G.pendingConfirm = {
+    yes: null,
+    _itemPending: true
+  };
+  G.inCombat = true;
+  // We'll re-route next input
+  G._itemMenu = true;
+  return false;
+}
+
+// We need a mini item sub-handler
+let itemMenuOpen = false;
+function handleCombatItemChoice(cmd) {
+  const c = cmd.trim();
+  G._itemMenu = false;
+  if (c === "1") {
+    if (G.bandage > 0) {
+      G.bandage--;
+      const heal = ri(10,16);
+      G.hp = Math.min(G.maxHp, G.hp + heal);
+      print(`You bandage the wound. +${heal} HP.`, "green");
+    } else print("No bandages left.", "dim");
+  } else if (c === "2") {
+    if (G.roomService > 0) {
+      G.roomService--;
+      G.hp = G.maxHp;
+      print("Room service arrives. Somehow. Full heal.", "green");
+      const f = Math.round(5 * G.fractureMult);
+      addFracture(f);
+      print(`The bellhop doesn't leave. +${f} Fracture.`, "red");
+    } else print("No room service vouchers.", "dim");
+  } else { print("Nothing happens.", "dim"); }
+  endCombatCheck();
+}
+
+function shootCombat() {
+  if (!G.gun) { print("No gun equipped.", "dim"); return true; }
+  if (G.shells < G.gun.shells) { print(`Not enough shells. Need ${G.gun.shells}, have ${G.shells}.`, "dim"); return true; }
+  G.shells -= G.gun.shells;
+  const e = G.enemy;
+  if (G.gun.effect === "aoe") {
+    const dmg = Math.round(ri(G.gun.dmgMin, G.gun.dmgMax) * G.damageMult);
+    e.hp = Math.max(0, e.hp - dmg);
+    print(`The shotgun fills the room with sound. ${e.name} takes ${dmg}.`);
+  } else if (G.gun.effect === "suppress") {
+    const dmg = Math.round(ri(G.gun.dmgMin, G.gun.dmgMax) * G.damageMult);
+    e.hp = Math.max(0, e.hp - dmg);
+    e.spd = Math.max(1, e.spd - 4);
+    print(`The rifle cracks once. ${e.name} takes ${dmg}. It hesitates. SPD -4.`);
+  } else {
+    const dmg = Math.round(ri(G.gun.dmgMin, G.gun.dmgMax) * G.damageMult);
+    e.hp = Math.max(0, e.hp - dmg);
+    print(`You fire. ${e.name} takes ${dmg}.`);
+    if (e.hp <= 0) print(`${e.name} collapses.`, "green");
+  }
+  print(`(${G.shells} shells left)`, "dim");
+  return true;
+}
+
+function endCombatCheck() {
+  const e = G.enemy;
+  if (e.hp <= 0) {
+    concludeFight(e);
+    return;
+  }
+  if (G.hp <= 0) { G.inCombat = false; checkWinLose(); return; }
+  // Enemy turn(s) via ATB simulation
+  enemyTurn(e);
+  if (G.hp <= 0) { G.inCombat = false; checkWinLose(); return; }
+  if (G.fracture >= 100) { G.inCombat = false; fractureCollapse(); return; }
+  showCombatStatus();
+  promptCombat();
+}
+
+function enemyTurn(e) {
+  if (e.hp <= 0) return;
+  if (e.isBoss && Math.random() < 0.35) {
+    const f = Math.round(ri(6,14) * G.fractureMult);
+    addFracture(f);
+    print(`${e.name} ${pick(BOSS_PASSIVE_LINES)}`, "dim");
+    print(`+${f} Fracture.`, "red");
+    return;
+  }
+  const effDef = G.def + G.combatDefBonus;
+  G.combatDefBonus = 0;
+  const dmg = Math.max(1, Math.round((e.atk - effDef) * G.damageMult));
+  G.hp = Math.max(0, G.hp - dmg);
+  print(`${e.name} ${pick(ATTACK_LINES)}`);
+  print(`You take ${dmg}.`, G.hp < G.maxHp*0.3 ? "red" : "");
+  if (G.hp <= 0) print("You collapse.", "red");
+}
+
+function concludeFight(e) {
+  G.inCombat = false;
+  blank();
+  print(`${e.name} stops.`);
+  const gain = ri(8,20) + (e.isBoss ? ri(15,30) : 0);
+  G.scraps += gain;
+  print(`You find ${gain} scraps.`, "green");
+  if (Math.random() < 0.30) {
+    const sh = ri(1,4);
+    G.shells += sh;
+    print(`${sh} shells on the floor.`, "green");
+  }
+  if (Math.random() < 0.10 && !G.gun) {
+    const gun = pick(HOTEL_GUNS);
+    print(`${gun.name} — left behind.`);
+    print("Take it? (y/n)", "accent");
+    G.pendingConfirm = {
+      yes: () => { G.gun = gun; print(`You take the ${gun.name}.`, "green"); },
+      no:  () => { print("You leave it.", "dim"); }
+    };
+  }
+  if (e.isBoss) {
+    const fd = Math.round(10 * G.fractureMult);
+    G.fracture = Math.max(0, G.fracture - fd);
+    blank();
+    const floorName = FLOORS[curRoom().floor-1].name;
+    print(`${floorName} is quiet.`);
+    print("Not the quiet of something resolved.", "dim");
+    print("The quiet of something that has stopped needing to make noise.", "dim");
+    print(`-${fd} Fracture.`, "green");
+  }
+  updateStatusBar();
+}
+
+function searchRoom() {
+  const r = curRoom();
+  if (r.enemy && r.enemy.hp > 0) { print("You can't search properly with that in the room.", "dim"); return; }
+  blank();
+  print("You search the room carefully.", "dim");
+  let found = false;
+  if (Math.random() < 0.40) {
+    const g = ri(5,18); G.scraps += g;
+    print(`You find ${g} scraps — cash, coins, something left behind.`, "green"); found = true;
+  }
+  if (Math.random() < 0.30) {
+    const sh = ri(1,4); G.shells += sh;
+    print(`Shells. ${sh} of them.`, "green"); found = true;
+  }
+  if (Math.random() < 0.22) {
+    G.bandage++;
+    print("A bandage kit. Still sealed.", "green"); found = true;
+  }
+  if (Math.random() < 0.15) {
+    G.roomService++;
+    print("A room service voucher. 'Good for one use. Complimentary.'", "green"); found = true;
+  }
+  if (Math.random() < 0.08 && !G.gun) {
+    const gun = pick(HOTEL_GUNS);
+    print(`\nYou find a ${gun.name}.`);
+    print(gun.desc, "dim");
+    print("Take it? (y/n)", "accent");
+    G.pendingConfirm = {
+      yes: () => { G.gun = gun; print(`You take the ${gun.name}.`, "green"); },
+      no:  () => { print("You leave it.", "dim"); }
+    };
+    found = true;
+  }
+  if (Math.random() < 0.25) {
+    print(pick(ROOM_LORE), "dim");
+    const f = Math.round(ri(2,6) * G.fractureMult);
+    addFracture(f);
+    print(`+${f} Fracture.`, "red"); found = true;
+  }
+  if (!found) print("Nothing useful here.", "dim");
+}
+
+function doRest() {
+  const r = curRoom();
+  if (r.enemy && r.enemy.hp > 0) { print("You can't rest with that in here.", "dim"); return; }
+  if (G.scraps < 20) { print("You can't afford to rest. (20 scraps)", "dim"); return; }
+  G.scraps -= 20;
+  const heal = ri(10,18);
+  G.hp = Math.min(G.maxHp, G.hp + heal);
+  const frac = Math.round(ri(2,5) * G.fractureMult);
+  addFracture(frac);
+  blank();
+  const restLines = [
+    ["You sit on the edge of the bed.", "The mattress adjusts to you too quickly. Like it already knew your shape.", "When you open your eyes the room is slightly different. As if it moved a fraction closer to something it was always becoming."],
+    ["You lie down.", "The ceiling is the wrong distance away.", "You sleep anyway. You dream about the corridor. In the dream you understand why.", "You wake up and immediately forget the understanding."],
+    ["You sit against the wall.", "The wall is warm. It has been warm on every floor.", "You are unsuccessful at not thinking about it."],
+    ["You sleep in the chair.", "Not the bed. You don't trust the bed.", "You dream about home. The dream gets the details almost right. Almost."]
+  ];
+  pick(restLines).forEach(l => print(l, "dim"));
+  print(`+${heal} HP. +${frac} Fracture.`, G.hp < G.maxHp*0.3 ? "red" : "");
+  print("(The hotel gives you rest. The hotel takes something for it.)", "dim");
+}
+
+function showGunMenu() {
+  blank();
+  print("=== GUN ===", "accent");
+  if (G.gun) {
+    print(`Equipped: ${G.gun.name}`);
+    print(G.gun.desc, "dim");
+    print(`Damage: ${G.gun.dmgMin}-${G.gun.dmgMax} | Shells/shot: ${G.gun.shells}`);
+    print(`Shells: ${G.shells}`);
+    blank();
+    print("Switch:");
+    HOTEL_GUNS.forEach((g,i) => print(`${i+1}. ${g.name}`));
+    print(`${HOTEL_GUNS.length+1}. Unequip`);
+    print("(enter number or press enter to cancel)", "dim");
+    G._gunMenu = true;
+  } else {
+    print("No gun equipped. Find them by searching rooms.", "dim");
+    print(`Shells: ${G.shells}`);
+  }
+}
+
+function handleGunMenu(cmd) {
+  G._gunMenu = false;
+  const c = cmd.trim();
+  if (!c) { print("Gun menu closed.", "dim"); return; }
+  const idx = parseInt(c) - 1;
+  if (idx === HOTEL_GUNS.length) { G.gun = null; print("Gun unequipped.", "dim"); }
+  else if (HOTEL_GUNS[idx]) { G.gun = HOTEL_GUNS[idx]; print(`You switch to the ${G.gun.name}.`, "green"); }
+  else { print("Invalid choice.", "dim"); }
+  updateStatusBar();
+}
+
+// ============================================================
+// WIN / LOSE
+// ============================================================
+
+function checkWinLose() {
+  if (!G) return;
+  if (G.currentRoom >= 70 && G.hp > 0) { checkoutEnding(); }
+  else if (G.hp <= 0) { deathScreen(); }
+}
+
+function checkoutEnding() {
+  G.phase = "done";
+  blank();
+  printSep("═");
+  const lines = [
+    "Room 70.",
+    "",
+    "The door at the end of a corridor that goes on too long.",
+    "You have been walking toward it for seven days.",
+    "",
+    "You open it.",
+    "",
+    "Outside.",
+    "",
+    "Not the city you arrived in.",
+    "Close.",
+    "The proportions are slightly wrong.",
+    "The sky is the right colour but the wrong shade.",
+    "The sound of traffic is there but the timing is off.",
+    "Like a recording of a city rather than a city.",
+    "",
+    "You stand on the pavement.",
+    "",
+    "You are not okay.",
+    "",
+    "You know this with the specific certainty of someone",
+    "who has just spent a week learning what it feels like",
+    "to not be okay, precisely, technically, completely.",
+    "",
+    "You don't call anyone.",
+    "The words for what happened are still in the hotel.",
+    "The hotel keeps them.",
+    "The hotel is good at keeping things.",
+    "",
+    "A week from now you will be in a hospital.",
+    "You will not explain how you got there.",
+    "The words are still on the fourth floor."
+  ];
+  lines.forEach(l => print(l, "dim"));
+  blank();
+  printSep("═");
+  print(`  ${G.name.toUpperCase()}`, "bold");
+  print(`  CHECKED IN: 7 DAYS AGO`, "dim");
+  print(`  ROOMS SURVIVED: ${G.roomsCleared}/70`, "dim");
+  print(`  FRACTURE ON EXIT: ${G.fracture}/100`, G.fracture >= 70 ? "red" : G.fracture >= 40 ? "yellow" : "");
+  blank();
+  if (G.fracture === 0) {
+    print("  You leave whole. The hotel has never failed to leave a mark. Check again in a few days.", "dim");
+  } else if (G.fracture < 25) {
+    print("  You leave mostly intact. The changes are small. Small changes accumulate.", "dim");
+  } else if (G.fracture < 50) {
+    print("  You leave changed. You will spend a long time thinking it was something else. It was the hotel.", "dim");
+  } else if (G.fracture < 75) {
+    print("  You leave fractured. Not broken. Not yet. Give it a week.", "dim");
+    print("  The hospital will be clean and white and will smell like antiseptic.", "dim");
+    print("  You will be grateful for something that simple.", "dim");
+  } else if (G.fracture < 90) {
+    print("  You barely leave. Some of you didn't make it through the door.", "dim");
+    print("  The hotel holds it for you. You will not collect it.", "dim");
+  } else {
+    print("  You leave, technically.", "dim");
+    print("  The part of you that checks out is not the part that checked in.", "dim");
+    print("  The hotel has your name on two registries now.", "dim");
+  }
+  printSep("═");
+  blank();
+  print("The hotel sign flickers behind you as you walk away.", "dim");
+  print("The letters rearrange.", "dim");
+  print("They spell: COME BACK.", "yellow");
+  print("Then: YOU WILL.", "yellow");
+  blank();
+  print("In the hospital, a week from now,", "dim");
+  print("something beneath the building followed you here.", "dim");
+  print("It found something beneath the hospital.", "dim");
+  print("Something deep and old and shelved.", "dim");
+  blank();
+  print("D A R K   F L O O F", "accent");
+  print("THE ORIGINAL GAME", "dim");
+  print("THE ONE YOU HAVEN'T PLAYED YET", "dim");
+  print("OR THE ONE YOU ALREADY HAVE", "dim");
+  print("DEPENDING ON WHEN YOU FOUND THIS", "dim");
+  blank();
+  print("(type anything to return to title)", "dim");
+  setupPhase = "done";
+  updateStatusBar();
+}
+
+function deathScreen() {
+  G.phase = "done";
+  blank();
+  printSep("═");
+  print(`${G.name} doesn't make it out.`, "yellow");
+  blank();
+  print("Not killed.", "dim");
+  print("", "");
+  print("Kept.", "dim");
+  blank();
+  print("The hotel updates the registry.", "dim");
+  print("Under checkout date, it writes nothing.", "dim");
+  print("It has never written anything under that field for a guest it keeps.", "dim");
+  blank();
+  print(`Room ${G.currentRoom+1} of 70.`, "dim");
+  blank();
+  print("The hotel thanks you for your stay.", "dim");
+  print("It genuinely does.", "dim");
+  print("It just expresses gratitude differently than you're used to.", "dim");
+  blank();
+  print("Your room will be ready for the next guest by morning.", "dim");
+  blank();
+  printSep("═");
+  blank();
+  print("(type anything to return to title)", "dim");
+  setupPhase = "done";
+  updateStatusBar();
+}
+
+// ============================================================
+// INPUT HANDLER
+// ============================================================
+
+const cmdInput = document.getElementById("cmd");
+
+cmdInput.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  const raw = cmdInput.value;
+  const cmd = raw.trim();
+  cmdInput.value = "";
+
+  // Echo input
+  if (cmd) print(`> ${raw}`, "dim");
+
+  if (setupPhase === "done") {
+    G = null;
+    startTitle();
+    return;
+  }
+
+  if (setupPhase !== "play") {
+    handleSetup(raw);
+    updateStatusBar();
+    return;
+  }
+
+  if (!G) { startTitle(); return; }
+
+  // Gun menu sub-input
+  if (G._gunMenu) { handleGunMenu(raw); return; }
+
+  // Item menu sub-input
+  if (G._itemMenu) { handleCombatItemChoice(raw); updateStatusBar(); return; }
+
+  handlePlay(raw);
+});
+
+// Auto-focus on click anywhere
+document.addEventListener("click", () => cmdInput.focus());
+
+// ============================================================
+// BOOT
+// ============================================================
+
+startTitle();
+</script>
+</body>
+</html>
