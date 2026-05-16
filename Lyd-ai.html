@@ -22,28 +22,32 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, sans-serif;
       background: radial-gradient(circle at top, #1e293b 0, #020617 55%);
       color: var(--text);
       height: 100vh;
       display: flex;
       align-items: stretch;
       justify-content: center;
+      -webkit-user-select: none;
+      user-select: none;
     }
+    input, textarea {
+      touch-action: manipulation;
+    }
+
     .app {
       margin: 12px;
       max-width: 900px;
       width: 100%;
-      background: linear-gradient(135deg, #020617, #020617 40%, #0b1120 100%);
+      background: #020617;
       border-radius: 18px;
       border: 1px solid rgba(148, 163, 184, 0.25);
-      box-shadow:
-        0 0 0 1px rgba(15, 23, 42, 0.9),
-        0 18px 60px rgba(15, 23, 42, 0.9);
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
+
     .header {
       padding: 14px 18px;
       border-bottom: 1px solid rgba(148, 163, 184, 0.25);
@@ -51,6 +55,7 @@
       align-items: center;
       gap: 10px;
     }
+
     .avatar {
       width: 32px;
       height: 32px;
@@ -59,7 +64,6 @@
       border: 2px solid rgba(56, 189, 248, 0.7);
       box-shadow: 0 0 18px rgba(56, 189, 248, 0.7);
       position: relative;
-      overflow: hidden;
     }
     .avatar::after {
       content: "🐺";
@@ -70,18 +74,9 @@
       justify-content: center;
       font-size: 20px;
     }
-    .title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .title {
-      font-weight: 600;
-      letter-spacing: 0.03em;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+
+    .title-block { display: flex; flex-direction: column; gap: 2px; }
+    .title { font-weight: 600; display: flex; gap: 6px; }
     .badge {
       font-size: 11px;
       padding: 2px 6px;
@@ -89,13 +84,9 @@
       background: var(--accent-soft);
       color: var(--accent);
       border: 1px solid rgba(56, 189, 248, 0.5);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
     }
-    .subtitle {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .subtitle { font-size: 12px; color: var(--muted); }
+
     .status {
       margin-left: auto;
       font-size: 12px;
@@ -123,8 +114,9 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
     }
+
     .msg {
       max-width: 80%;
       padding: 8px 11px;
@@ -132,19 +124,16 @@
       font-size: 14px;
       line-height: 1.4;
       white-space: pre-wrap;
-      word-wrap: break-word;
     }
     .msg.user {
       align-self: flex-end;
       background: rgba(34, 197, 94, 0.12);
       border: 1px solid rgba(34, 197, 94, 0.5);
-      color: var(--text);
     }
     .msg.lyd {
       align-self: flex-start;
       background: rgba(15, 23, 42, 0.9);
       border: 1px solid rgba(56, 189, 248, 0.5);
-      box-shadow: 0 0 18px rgba(15, 23, 42, 0.9);
     }
     .msg.system {
       align-self: center;
@@ -153,18 +142,15 @@
       color: var(--muted);
       font-size: 12px;
     }
-    .msg strong {
-      color: var(--lyd);
-      font-weight: 600;
-    }
 
     .input-row {
       border-top: 1px solid rgba(148, 163, 184, 0.25);
       padding: 10px 12px;
       display: flex;
       gap: 8px;
-      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 55%);
+      background: rgba(56, 189, 248, 0.05);
     }
+
     .input-row input {
       flex: 1;
       padding: 9px 11px;
@@ -175,10 +161,7 @@
       font-size: 14px;
       outline: none;
     }
-    .input-row input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.6);
-    }
+
     .input-row button {
       border-radius: 999px;
       border: none;
@@ -191,15 +174,6 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      box-shadow: 0 10px 25px rgba(34, 197, 94, 0.35);
-    }
-    .input-row button:disabled {
-      opacity: 0.5;
-      cursor: default;
-      box-shadow: none;
-    }
-    .input-row button span.icon {
-      font-size: 16px;
     }
 
     @media (max-width: 640px) {
@@ -208,37 +182,26 @@
     }
   </style>
 </head>
+
 <body>
   <div class="app">
     <div class="header">
       <div class="avatar"></div>
       <div class="title-block">
-        <div class="title">
-          Lyd‑AI
-          <span class="badge">WebLLM</span>
-        </div>
-        <div class="subtitle">Chaotic husky assistant running fully in your browser.</div>
+        <div class="title">Lyd‑AI <span class="badge">WebLLM</span></div>
+        <div class="subtitle">Chaotic husky assistant running in your browser.</div>
       </div>
       <div class="status">
         <div id="status-dot" class="dot"></div>
-        <span id="status-text">Loading model… first run may take a bit.</span>
+        <span id="status-text">Loading model…</span>
       </div>
     </div>
 
     <div id="chat" class="chat"></div>
 
     <div class="input-row">
-      <input
-        id="msg"
-        type="text"
-        placeholder="Ask Lyd‑AI something… (model runs locally in your browser)"
-        onkeydown="if(event.key==='Enter'){sendMessage();}"
-        disabled
-      />
-      <button id="send-btn" onclick="sendMessage()" disabled>
-        <span class="icon">🚀</span>
-        Send
-      </button>
+      <input id="msg" type="text" placeholder="Ask Lyd‑AI something…" onkeydown="if(event.key==='Enter'){sendMessage();}">
+      <button id="send-btn" onclick="sendMessage()">🚀 Send</button>
     </div>
   </div>
 
@@ -250,64 +213,47 @@
     const statusText = document.getElementById("status-text");
 
     let engine = null;
+    let busy = false;
+
     let history = [
       {
         role: "system",
         content:
           "You are Lyd‑AI, a chaotic but kind Siberian husky AI with FloofyTech energy. " +
-          "You speak casually, mix in light humor, but still give clear, useful answers. " +
+          "You speak casually, mix in humor, but still give clear answers."
       }
     ];
-    let busy = false;
 
     function addMessage(role, text) {
       const div = document.createElement("div");
       div.classList.add("msg");
-      if (role === "user") div.classList.add("user");
-      else if (role === "assistant") div.classList.add("lyd");
-      else div.classList.add("system");
+      div.classList.add(role === "assistant" ? "lyd" : role);
       div.textContent = text;
       chatEl.appendChild(div);
       chatEl.scrollTop = chatEl.scrollHeight;
     }
 
     async function init() {
-      addMessage(
-        "system",
-        "Booting Lyd‑AI in your browser… first load downloads the model. Later loads will be faster."
+      addMessage("system", "Booting Lyd‑AI… model loads locally.");
+
+      engine = await webllm.CreateMLCEngine(
+        "Llama-3.2-1B-Instruct-q4f32_1-MLC",
+        {
+          initProgressCallback: (p) => {
+            statusText.textContent = p.text;
+          }
+        }
       );
 
-      try {
-        engine = await webllm.CreateMLCEngine(
-          // You can swap this for a bigger model if your GPU is strong:
-          // e.g. 'Llama-3.1-8B-Instruct-q4f32_1-MLC'
-          "Llama-3.2-1B-Instruct-q4f32_1-MLC",
-          {
-            initProgressCallback: (p) => {
-              statusText.textContent = `Loading: ${p.text}`;
-            }
-          }
-        );
+      statusDot.classList.add("ready");
+      statusText.textContent = "Ready.";
 
-        statusDot.classList.add("ready");
-        statusText.textContent = "Ready. Model is running locally in your browser.";
-        inputEl.disabled = false;
-        sendBtn.disabled = false;
-
-        addMessage(
-          "assistant",
-          "Lyd‑AI online. No server, no cloud—just your browser and a very opinionated husky. What’s up?"
-        );
-      } catch (err) {
-        console.error(err);
-        statusDot.classList.remove("ready");
-        statusText.textContent = "Failed to load model. Check console for details.";
-        addMessage("system", "Error loading WebLLM model. Open DevTools console to see what went wrong.");
-      }
+      addMessage("assistant", "Lyd‑AI online. No cloud, no server — just your device and a husky with opinions.");
     }
 
     async function sendMessage() {
       if (!engine || busy) return;
+
       const text = inputEl.value.trim();
       if (!text) return;
 
@@ -317,12 +263,9 @@
       busy = true;
       inputEl.disabled = true;
       sendBtn.disabled = true;
-      statusText.textContent = "Thinking… (all on your device)";
+      statusText.textContent = "Thinking…";
 
-      const messages = [
-        ...history,
-        { role: "user", content: text }
-      ];
+      const messages = [...history, { role: "user", content: text }];
 
       try {
         const reply = await engine.chat.completions.create({
@@ -337,9 +280,6 @@
 
         history.push({ role: "user", content: text });
         history.push({ role: "assistant", content: out });
-      } catch (err) {
-        console.error(err);
-        addMessage("system", "Lyd‑AI tripped over a virtual tail. Check console for error details.");
       } finally {
         busy = false;
         inputEl.disabled = false;
