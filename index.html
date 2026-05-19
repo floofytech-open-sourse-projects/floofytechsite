@@ -5,7 +5,6 @@
 <title>FloofyTech Portal</title>
 <meta name="description" content="FloofyTech is a fun, creative web portal full of experiments, projects, and floofy chaos. Come explore and have fun!">
 
-  
 <style>
 body{
   margin:0;
@@ -142,6 +141,131 @@ h1{
   font-family:monospace;
   cursor:pointer;
 }
+
+/* --- Lyd‑AI CPU Widget Styles --- */
+#floofy-widget {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 999999;
+  font-family: system-ui, sans-serif;
+}
+
+#floofy-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #38bdf8, #22c55e);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #0f172a;
+}
+
+#floofy-panel {
+  width: 340px;
+  height: 500px;
+  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#floofy-header {
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  color: #0f172a;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+#floofy-header img {
+  width: 22px;
+  height: 22px;
+}
+
+#floofy-sub {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#floofy-chat {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #e5e7eb;
+  font-size: 14px;
+}
+
+.floofy-msg {
+  padding: 8px 10px;
+  border-radius: 10px;
+  max-width: 80%;
+  white-space: pre-wrap;
+}
+
+.floofy-user {
+  align-self: flex-end;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.floofy-lyd {
+  align-self: flex-start;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.floofy-system {
+  align-self: center;
+  font-size: 11px;
+  color: #9ca3af;
+  opacity: 0.9;
+}
+
+#floofy-input-row {
+  padding: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  display: flex;
+  gap: 6px;
+}
+
+#floofy-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #0f172a;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+#floofy-send {
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #38bdf8, #22c55e);
+  color: #0f172a;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
 </style>
 </head>
 
@@ -149,6 +273,7 @@ h1{
 
 <canvas id="bg"></canvas>
 <link rel="icon" type="image/png" href="/favcon.png">
+
 <div class="container">
   <h1>welcome to the FloofyTech webportal :)</h1>
   <div class="warning">JUST HAVE FUN ITS NOT ALL SERIOUS! ok?</div>
@@ -167,21 +292,28 @@ h1{
     <a href="df3.html">dark-floof-3</a>
     <a href="df4.html">dark-floof-4</a>
     <a href="df_judgment_day.html">dark floof judgment day</a>
-    <a href="https://archive.org/details/floof-os" target="_blank" rel="noopener noreferrer">Install FloofOS</a>
-    <a href="https://archive.org/details/floofos-2" target="_blank" rel="noopener noreferrer">Install FloofOS-2</a>
+    <a href="https://archive.org/details/floof-os" target="_blank">Install FloofOS</a>
+    <a href="https://archive.org/details/floofos-2" target="_blank">Install FloofOS-2</a>
     <a href="Lyd-ai.html">lyd-ai</a>
   </div>
 
-  <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank" rel="noopener noreferrer">
+  <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
     Go to Main Site (UNSTABLE)
   </a>
 </div>
 
 <div class="footnote" id="lydia-foot">join the Lydia fanclub</div>
 
+<!-- Lyd‑AI CPU Widget -->
+<div id="floofy-widget"></div>
+
+<!-- Transformers.js (CPU LLM) -->
+<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
+
 <script>
 window.onload = () => document.body.classList.add("loaded");
 
+/* BACKGROUND GRID */
 const canvas = document.getElementById("bg");
 const ctx = canvas.getContext("2d");
 
@@ -193,7 +325,6 @@ resize();
 window.addEventListener("resize", resize);
 
 let offset = 0;
-
 const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"];
 const cycleDuration = 120000;
 
@@ -228,7 +359,6 @@ function draw(){
   const currentColor = getCurrentColor();
   ctx.strokeStyle = currentColor;
   ctx.shadowColor = currentColor;
-  ctx.shadowBlur = 0;
 
   const spacing = 40;
   offset += 0.5;
@@ -247,82 +377,149 @@ function draw(){
     ctx.stroke();
   }
 
-  ctx.fillStyle = "rgba(0,255,255,0.02)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
   requestAnimationFrame(draw);
 }
-
 draw();
 
-/* SCHOOL SAFE MODE */
-function schoolSafeMode(){
-  document.body.innerHTML = `
-    <div style="text-align:center; padding:40px; font-family:monospace; color:white;">
-      <h1 style="text-shadow:0 0 10px #0ff;">FloofyTech (School-Safe Mode)</h1>
-      <p style="color:#01ff65;">Some features were blocked, so we switched to a safe version.</p>
+/* --- REMOVED SCHOOL SAFE MODE COMPLETELY --- */
 
-      <div style="margin-top:30px; display:flex; flex-direction:column; gap:15px;">
-        <a href="darkfloof.html" style="color:#0ff;">Dark Floof</a>
-        <a href="wall.html" style="color:#0ff;">Wall</a>
-        <a href="neongrid.html" style="color:#0ff;">Neon Grid</a>
-        <a href="numasfuk-interpreter.html" style="color:#0ff;">NUMASFUK Interpreter</a>
-      </div>
-
-      <p style="margin-top:40px; font-size:12px; opacity:0.7;">
-        Canvas, animations, and external links disabled for safety.
-      </p>
-    </div>
-  `;
-}
-
-let safeModeActive = false;
-
-document.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() === "y") {
-    if (!safeModeActive) {
-      safeModeActive = true;
-      schoolSafeMode();
-    } else {
-      safeModeActive = false;
-      location.reload();
-    }
-  }
-});
-
-/* AUTO SAFE MODE */
-setTimeout(() => {
-  if (!canvas.getContext) schoolSafeMode();
-
-  try{
-    if (window.top !== window.self) schoolSafeMode();
-  }catch(e){
-    schoolSafeMode();
-  }
-}, 300);
-
-
-/* --- LYDIA FANCLUB PERSISTENT TOKEN --- */
+/* --- LYDIA FANCLUB TOKEN --- */
 const foot = document.getElementById("lydia-foot");
-
-// If token exists, show membership status
 if (localStorage.getItem("lydiaFanclub") === "member") {
   foot.textContent = "Lydia fanclub member";
 }
-
-// Click to join
 foot.addEventListener("click", () => {
   localStorage.setItem("lydiaFanclub", "member");
   foot.textContent = "thanks for joining";
-
-  // glow pulse
   foot.style.textShadow = "0 0 12px #0ff";
-
   setTimeout(() => {
     foot.textContent = "Lydia fanclub member";
     foot.style.textShadow = "0 0 5px #0ff";
   }, 2000);
 });
+
+/* --- Lyd‑AI CPU Widget Logic --- */
+const widget = document.getElementById("floofy-widget");
+widget.innerHTML = `
+  <button id="floofy-btn">🐺</button>
+  <div id="floofy-panel">
+    <div id="floofy-header">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Diaspora-logo.png">
+      <div>
+        Lyd‑AI • FloofyTech
+        <div id="floofy-sub">CPU‑only • WASM</div>
+      </div>
+    </div>
+    <div id="floofy-chat"></div>
+    <div id="floofy-input-row">
+      <input id="floofy-input" placeholder="Ask Lyd‑AI… (CPU)">
+      <button id="floofy-send">Send</button>
+    </div>
+  </div>
+`;
+
+const btn   = document.getElementById("floofy-btn");
+const panel = document.getElementById("floofy-panel");
+const chat  = document.getElementById("floofy-chat");
+const input = document.getElementById("floofy-input");
+const send  = document.getElementById("floofy-send");
+
+let pipe = null;
+let busy = false;
+
+const history = [
+  {
+    role: "system",
+    content:
+      "You are Lyd‑AI, the official FloofyTech husky assistant. " +
+      "You run on CPU only (no GPU, no WebGPU). " +
+      "You speak with chaotic husky energy but give clear answers. " +
+      "You may reference FloofyTech, FloofOS, DOGPACK, Floofcell, and Dogpen."
+  }
+];
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  if (role === "system") {
+    div.className = "floofy-msg floofy-system";
+  } else {
+    div.className = "floofy-msg " + (role === "assistant" ? "floofy-lyd" : "floofy-user");
+  }
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+btn.onclick = () => {
+  panel.style.display = panel.style.display === "flex" ? "none" : "flex";
+};
+
+async function initModel() {
+  addMessage("system", "Booting Lyd‑AI on CPU… downloading model…");
+
+  pipe = await window.transformers.pipeline(
+    "text-generation",
+    "Xenova/Qwen2.5-0.5B-Instruct"
+  );
+
+  addMessage("assistant", "Lyd‑AI online. Running fully on CPU. What do you need, hooman?");
+}
+
+function buildPrompt(userText) {
+  let convo = history
+    .filter(m => m.role !== "system")
+    .map(m => `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content}`)
+    .join("\n");
+
+  const sys = history.find(m => m.role === "system")?.content || "";
+
+  return (
+    `System: ${sys}\n` +
+    (convo ? convo + "\n" : "") +
+    `User: ${userText}\nAssistant:`
+  );
+}
+
+async function sendMsg() {
+  if (!pipe || busy) return;
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
+  addMessage("user", text);
+  busy = true;
+  send.disabled = true;
+
+  const prompt = buildPrompt(text);
+
+  try {
+    const out = await pipe(prompt, {
+      max_new_tokens: 128,
+      temperature: 0.8,
+      top_p: 0.9,
+    });
+
+    const full = out[0].generated_text;
+    const reply = full.split("Assistant:").pop().trim();
+
+    addMessage("assistant", reply);
+
+    history.push({ role: "user", content: text });
+    history.push({ role: "assistant", content: reply });
+  } catch (e) {
+    console.error(e);
+    addMessage("system", "Lyd‑AI tripped over a CPU core. Check console for details.");
+  } finally {
+    busy = false;
+    send.disabled = false;
+  }
+}
+
+send.onclick = sendMsg;
+input.onkeydown = (e) => { if (e.key === "Enter") sendMsg(); };
+
+initModel();
 </script>
 
 </body>
