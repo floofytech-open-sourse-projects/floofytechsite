@@ -5,6 +5,9 @@
 <title>FloofyTech Portal</title>
 <meta name="description" content="FloofyTech is a fun, creative web portal full of experiments, projects, and floofy chaos. Come explore and have fun!">
 
+<!-- Fix wolf emoji rendering -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji" rel="stylesheet">
+
 <style>
 body{
   margin:0;
@@ -142,28 +145,36 @@ h1{
   cursor:pointer;
 }
 
-/* --- Lyd‑AI CPU Widget Styles --- */
+/* --- Lyd‑AI Widget Styles --- */
 #floofy-widget {
   position: fixed;
-  bottom: 85px;
+  bottom: 85px; 
   right: 25px;
   z-index: 999999;
-  font-family: system-ui, sans-serif;
+  font-family: "Noto Color Emoji", system-ui, sans-serif;
 }
 
 #floofy-btn {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
-  background: linear-gradient(135deg, #38bdf8, #22c55e);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+  background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9, #0f172a);
+  box-shadow: 0 0 25px #38bdf8aa, 0 0 60px #22c55e55;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  color: #0f172a;
+  font-size: 40px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  transition: 0.2s;
+}
+
+#floofy-btn:hover {
+  transform: scale(1.1) rotate(3deg);
+  box-shadow: 0 0 40px #38bdf8ff, 0 0 80px #22c55eff;
 }
 
 #floofy-panel {
@@ -303,10 +314,10 @@ h1{
 
 <div class="footnote" id="lydia-foot">join the Lydia fanclub</div>
 
-<!-- Lyd‑AI CPU Widget -->
+<!-- Lyd‑AI Widget -->
 <div id="floofy-widget"></div>
 
-<!-- Transformers.js (CPU LLM) -->
+<!-- Transformers.js -->
 <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
 
 <script>
@@ -357,7 +368,6 @@ function draw(){
   ctx.lineWidth = 2;
   const currentColor = getCurrentColor();
   ctx.strokeStyle = currentColor;
-  ctx.shadowColor = currentColor;
 
   const spacing = 40;
   offset += 0.5;
@@ -380,9 +390,7 @@ function draw(){
 }
 draw();
 
-/* --- REMOVED SCHOOL SAFE MODE COMPLETELY --- */
-
-/* --- LYDIA FANCLUB TOKEN --- */
+/* --- Lydia Fanclub Token --- */
 const foot = document.getElementById("lydia-foot");
 if (localStorage.getItem("lydiaFanclub") === "member") {
   foot.textContent = "Lydia fanclub member";
@@ -397,7 +405,7 @@ foot.addEventListener("click", () => {
   }, 2000);
 });
 
-/* --- Lyd‑AI CPU Widget Logic --- */
+/* --- Lyd‑AI Widget Logic --- */
 const widget = document.getElementById("floofy-widget");
 widget.innerHTML = `
   <button id="floofy-btn">🐺</button>
@@ -406,12 +414,12 @@ widget.innerHTML = `
       <img src="https://upload.wikimedia.org/wikipedia/commons/0/0b/Diaspora-logo.png">
       <div>
         Lyd‑AI • FloofyTech
-        <div id="floofy-sub">CPU‑only • WASM</div>
+        <div id="floofy-sub">FloofyTech Assistant</div>
       </div>
     </div>
     <div id="floofy-chat"></div>
     <div id="floofy-input-row">
-      <input id="floofy-input" placeholder="Ask Lyd‑AI… (CPU)">
+      <input id="floofy-input" placeholder="Ask Lyd‑AI…">
       <button id="floofy-send">Send</button>
     </div>
   </div>
@@ -431,9 +439,9 @@ const history = [
     role: "system",
     content:
       "You are Lyd‑AI, the official FloofyTech husky assistant. " +
-      "You run on CPU only (no GPU, no WebGPU). " +
       "You speak with chaotic husky energy but give clear answers. " +
-      "You may reference FloofyTech, FloofOS, DOGPACK, Floofcell, and Dogpen."
+      "You may reference FloofyTech, FloofOS, DOGPACK, Floofcell, and Dogpen. " +
+      "You are fast, responsive, and always available."
   }
 ];
 
@@ -454,14 +462,14 @@ btn.onclick = () => {
 };
 
 async function initModel() {
-  addMessage("system", "Booting Lyd‑AI on CPU… downloading model…");
+  addMessage("system", "Booting Lyd‑AI… preparing systems…");
 
   pipe = await window.transformers.pipeline(
     "text-generation",
     "Xenova/Qwen2.5-0.5B-Instruct"
   );
 
-  addMessage("assistant", "Lyd‑AI online. Running fully on CPU. What do you need, hooman?");
+  addMessage("assistant", "Lyd‑AI online. Systems nominal. What do you need, hooman?");
 }
 
 function buildPrompt(userText) {
@@ -508,7 +516,7 @@ async function sendMsg() {
     history.push({ role: "assistant", content: reply });
   } catch (e) {
     console.error(e);
-    addMessage("system", "Lyd‑AI tripped over a CPU core. Check console for details.");
+    addMessage("system", "Lyd‑AI encountered an issue. Check console for details.");
   } finally {
     busy = false;
     send.disabled = false;
