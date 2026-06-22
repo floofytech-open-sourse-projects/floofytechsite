@@ -2,425 +2,551 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FloofyTech Portal</title>
+<title>FloofyTech Portal - EXTREME 2005</title>
 <meta name="description" content="FloofyTech is a fun, creative web portal full of experiments, projects, and floofy chaos. Come explore and have fun!">
 
-<!-- Fix wolf emoji rendering -->
+<!-- Comic Sans baby -->
 <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji" rel="stylesheet">
 
 <style>
-body{
-  margin:0;
-  font-family:monospace;
-  color:white;
-  overflow:hidden;
-
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-  background:#5b2f3f;
-  position:relative;
-
-  opacity:0;
-  transition:opacity 0.5s ease;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-body.loaded{
-  opacity:1;
+body {
+  font-family: "Comic Sans MS", cursive;
+  color: #000;
+  background: #ffff00 url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23ffff00" width="100" height="100"/><circle cx="10" cy="10" r="3" fill="%23ff00ff"/><circle cx="90" cy="90" r="3" fill="%2300ffff"/></svg>');
+  background-size: 100px 100px;
+  position: relative;
+  overflow-x: hidden;
+  min-height: 100vh;
+  padding: 20px;
 }
 
-/* BACKGROUND CANVAS */
-#bg{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  z-index:-1;
+/* Animated background */
+@keyframes bgShift {
+  0% { background-position: 0 0; }
+  100% { background-position: 100px 100px; }
 }
 
-/* CONTENT */
-.container{
-  text-align:center;
-  max-width:800px;
-  width:100%;
+body.animate {
+  animation: bgShift 8s linear infinite;
 }
 
-h1{
-  margin-bottom:10px;
-  text-shadow:0 0 10px #0ff;
+/* Marquee effect */
+.marquee {
+  background: linear-gradient(90deg, #ff00ff, #00ffff, #ffff00, #ff00ff);
+  color: #000;
+  padding: 15px;
+  font-weight: bold;
+  font-size: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  margin-bottom: 20px;
+  border: 4px solid #000;
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.3);
 }
 
-.warning{
-  color:#01ff65;
-  margin-bottom:25px;
-  font-size:14px;
+.marquee-content {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scrollMarquee 15s linear infinite;
 }
 
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
-  gap:15px;
-  justify-content:center;
-  max-width:650px;
-  margin:0 auto 25px auto;
+@keyframes scrollMarquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
 }
 
-/* BUTTONS + SHIMMER */
-.grid a{
-  display:block;
-  padding:15px;
-  background:rgba(20,20,20,0.85);
-  border-radius:10px;
-  text-decoration:none;
-  color:white;
-  transition:0.2s;
-  backdrop-filter:blur(4px);
-  text-align:center;
-  position:relative;
-  overflow:hidden;
+/* Main container */
+.container {
+  text-align: center;
+  max-width: 900px;
+  margin: 0 auto;
+  background: rgba(255, 100, 200, 0.3);
+  border: 8px dashed #ff00ff;
+  padding: 30px;
+  position: relative;
+  box-shadow: 
+    10px 10px 0 rgba(0,0,255,0.5),
+    -5px -5px 0 rgba(0,255,255,0.5);
 }
 
-.grid a:hover{
-  background:#0ff;
-  color:black;
-  transform:scale(1.03);
+/* Retro header */
+h1 {
+  font-size: 48px;
+  color: #ff0000;
+  text-shadow: 
+    3px 3px 0 #00ff00,
+    6px 6px 0 #0000ff,
+    9px 9px 0 #ffff00;
+  margin-bottom: 10px;
+  transform: rotate(-2deg);
+  font-weight: black;
+  letter-spacing: 3px;
 }
 
-/* shimmer corners */
-.grid a::before, .grid a::after{
-  content:"";
-  position:absolute;
-  width:12px;
-  height:12px;
-  background:linear-gradient(45deg, rgba(255,255,255,0.6), rgba(0,255,255,0.8));
-  opacity:0;
-  transition:opacity 0.3s;
-  pointer-events:none;
-  filter:blur(1px);
+/* Blinking text */
+.blink {
+  animation: blink 0.7s infinite;
+  color: #ff0000;
+  font-weight: bold;
+  font-size: 20px;
 }
 
-.grid a::before{
-  top:0;
-  left:0;
-  border-radius:0 0 10px 0;
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.2; }
 }
 
-.grid a::after{
-  bottom:0;
-  right:0;
-  border-radius:10px 0 0 0;
+.warning {
+  background: #ffff00;
+  color: #ff0000;
+  margin-bottom: 25px;
+  font-size: 18px;
+  padding: 15px;
+  border: 4px solid #ff0000;
+  font-weight: bold;
+  transform: rotate(1deg);
+  box-shadow: 5px 5px 0 rgba(0,0,0,0.3);
 }
 
-.grid a:hover::before,
-.grid a:hover::after{
-  opacity:1;
+/* Grid of buttons */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  justify-content: center;
+  margin: 0 auto 30px auto;
+  padding: 20px;
+  background: rgba(0,255,255,0.2);
+  border: 4px solid #00ffff;
 }
 
-.main-site{
-  display:inline-block;
-  padding:15px 25px;
-  background:#550000;
-  border-radius:10px;
-  text-decoration:none;
-  color:white;
-  font-weight:bold;
+/* Retro buttons */
+.grid a {
+  display: block;
+  padding: 20px 15px;
+  background: linear-gradient(135deg, #ff6600, #ffaa00);
+  border: 4px outset #ffff00;
+  text-decoration: none;
+  color: #000;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-align: center;
+  font-family: "Comic Sans MS", cursive;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
+  position: relative;
+  transform: rotate(-1deg);
 }
 
-.main-site:hover{
-  background:#ff0000;
+.grid a:hover {
+  background: linear-gradient(135deg, #ffaa00, #ff6600);
+  transform: rotate(2deg) scale(1.08);
+  border-style: inset;
+  box-shadow: 8px 8px 0 rgba(0,0,0,0.5), inset 2px 2px 5px rgba(255,255,255,0.5);
 }
 
-/* FOOTNOTE */
-.footnote{
-  position:fixed;
-  bottom:8px;
-  right:8px;
-  font-size:12px;
-  opacity:0.7;
-  color:#0ff;
-  text-shadow:0 0 5px #0ff;
-  font-family:monospace;
-  cursor:pointer;
+.grid a:active {
+  border-style: inset;
+  box-shadow: inset 4px 4px 0 rgba(0,0,0,0.3);
 }
 
-/* --- Lyd‑AI Widget Styles --- */
+/* Main site button */
+.main-site {
+  display: inline-block;
+  padding: 20px 40px;
+  background: linear-gradient(135deg, #00ff00, #00cc00);
+  border: 6px outset #00ff00;
+  text-decoration: none;
+  color: #000;
+  font-weight: bold;
+  font-size: 20px;
+  cursor: pointer;
+  font-family: "Comic Sans MS", cursive;
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.5);
+  transition: all 0.1s;
+  transform: rotate(-3deg);
+}
+
+.main-site:hover {
+  background: linear-gradient(135deg, #00cc00, #00ff00);
+  transform: rotate(3deg) scale(1.1);
+  border-style: inset;
+  box-shadow: 10px 10px 0 rgba(0,0,0,0.6), inset 2px 2px 5px rgba(255,255,255,0.5);
+}
+
+.main-site:active {
+  border-style: inset;
+  box-shadow: inset 4px 4px 0 rgba(0,0,0,0.4);
+}
+
+/* Spinning element */
+.spin {
+  display: inline-block;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Footnote */
+.footnote {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ff0000;
+  text-shadow: 2px 2px 0 #ffff00;
+  cursor: pointer;
+  font-family: "Comic Sans MS", cursive;
+  background: #ffff00;
+  padding: 5px 10px;
+  border: 3px solid #ff0000;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.4);
+}
+
+.footnote:hover {
+  transform: scale(1.1);
+  animation: blink 0.5s infinite;
+}
+
+/* --- Retro Lyd-AI Widget Styles --- */
 #floofy-widget {
   position: fixed;
-  bottom: 85px; 
+  bottom: 85px;
   right: 25px;
   z-index: 999999;
-  font-family: "Noto Color Emoji", system-ui, sans-serif;
+  font-family: "Comic Sans MS", cursive;
 }
 
 #floofy-btn {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
-  border: none;
+  border: 6px outset #ffff00;
   cursor: pointer;
-  background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9, #0f172a);
-  box-shadow: 0 0 25px #38bdf8aa, 0 0 60px #22c55e55;
+  background: linear-gradient(135deg, #ff0000, #00ff00, #0000ff);
+  box-shadow: 0 0 20px #ff00ff, 6px 6px 0 rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
+  font-size: 50px;
   color: #ffffff;
   position: relative;
   overflow: hidden;
-  transition: 0.2s;
+  transition: 0.15s;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 #floofy-btn:hover {
-  transform: scale(1.1) rotate(3deg);
-  box-shadow: 0 0 40px #38bdf8ff, 0 0 80px #22c55eff;
+  transform: scale(1.15) rotate(10deg);
+  border-style: inset;
+  box-shadow: 0 0 30px #ff00ff, inset 2px 2px 5px rgba(255,255,255,0.5);
+  animation: none;
+}
+
+#floofy-btn:active {
+  border-style: inset;
+  box-shadow: inset 4px 4px 0 rgba(0,0,0,0.3);
 }
 
 #floofy-panel {
-  width: 340px;
-  height: 500px;
-  background: #020617;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 16px;
-  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  width: 360px;
+  height: 520px;
+  background: linear-gradient(135deg, #ffccff, #ccffff);
+  border: 6px outset #ff00ff;
+  border-radius: 0;
+  box-shadow: 10px 10px 0 rgba(0,0,0,0.5), inset 1px 1px 0 rgba(255,255,255,0.8);
   position: absolute;
-  bottom: 80px;
+  bottom: 90px;
   right: 0;
-  display: none;
+  display: flex;
   flex-direction: column;
   overflow: hidden;
+  font-family: "Comic Sans MS", cursive;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+#floofy-panel.show {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 #floofy-header {
-  padding: 10px 14px;
-  background: linear-gradient(135deg, #0ea5e9, #22c55e);
-  color: #0f172a;
-  font-weight: 600;
+  padding: 12px;
+  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00);
+  color: #000;
+  font-weight: bold;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
+  border-bottom: 4px solid #000;
+  text-shadow: 1px 1px 0 rgba(255,255,255,0.5);
 }
 
 #floofy-header img {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 #floofy-sub {
-  font-size: 11px;
-  opacity: 0.8;
+  font-size: 12px;
+  font-weight: normal;
 }
 
 #floofy-chat {
   flex: 1;
-  padding: 10px;
+  padding: 12px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #e5e7eb;
-  font-size: 14px;
+  color: #000;
+  font-size: 13px;
+  background: #ffffff;
+  border-bottom: 3px solid #999;
+}
+
+#floofy-chat::-webkit-scrollbar {
+  width: 16px;
+}
+
+#floofy-chat::-webkit-scrollbar-track {
+  background: #cccccc;
+}
+
+#floofy-chat::-webkit-scrollbar-thumb {
+  background: #999;
+  border: 2px solid #cccccc;
 }
 
 .floofy-msg {
-  padding: 8px 10px;
-  border-radius: 10px;
-  max-width: 80%;
+  padding: 10px 12px;
+  border-radius: 0;
+  max-width: 85%;
   white-space: pre-wrap;
+  border: 2px solid #000;
 }
 
 .floofy-user {
   align-self: flex-end;
-  background: rgba(34, 197, 94, 0.15);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: #ffff99;
+  border: 2px solid #ff9900;
 }
 
 .floofy-lyd {
   align-self: flex-start;
-  background: rgba(56, 189, 248, 0.15);
-  border: 1px solid rgba(56, 189, 248, 0.4);
+  background: #99ffff;
+  border: 2px solid #0099ff;
 }
 
 .floofy-system {
   align-self: center;
   font-size: 11px;
-  color: #9ca3af;
-  opacity: 0.9;
+  color: #666;
+  background: #dddddd;
+  border: 1px solid #999;
+  padding: 5px 8px;
 }
 
 #floofy-input-row {
   padding: 8px;
-  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  border-top: 3px solid #999;
   display: flex;
   gap: 6px;
+  background: linear-gradient(180deg, #ffffcc, #ffff99);
 }
 
 #floofy-input {
   flex: 1;
   padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  background: #0f172a;
-  color: #e5e7eb;
+  border-radius: 0;
+  border: 3px inset #999;
+  background: #ffffff;
+  color: #000;
   font-size: 13px;
+  font-family: "Comic Sans MS", cursive;
+  font-weight: bold;
+}
+
+#floofy-input::placeholder {
+  color: #999;
 }
 
 #floofy-send {
-  padding: 0 14px;
-  border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #38bdf8, #22c55e);
-  color: #0f172a;
+  padding: 8px 16px;
+  border-radius: 0;
+  border: 4px outset #00ff00;
+  background: linear-gradient(180deg, #00ff00, #00cc00);
+  color: #000;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: bold;
   font-size: 13px;
+  font-family: "Comic Sans MS", cursive;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.3);
+  transition: 0.1s;
+}
+
+#floofy-send:hover {
+  border-style: inset;
+  box-shadow: inset 2px 2px 0 rgba(0,0,0,0.2);
+}
+
+#floofy-send:active {
+  border-style: inset;
+}
+
+/* Retro scrollbar */
+::-webkit-scrollbar {
+  width: 20px;
+}
+
+::-webkit-scrollbar-track {
+  background: #cccccc;
+  border: 2px solid #999;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ffffcc, #ffff99);
+  border: 3px outset #ffff00;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #ffff99, #ffff66);
+}
+
+/* Star decoration */
+.star {
+  display: inline-block;
+  animation: twinkle 1.5s infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Rainbow text */
+.rainbow {
+  background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: bold;
 }
 </style>
 </head>
 
 <body>
 
-<canvas id="bg"></canvas>
-<link rel="icon" type="image/png" href="/favcon.png">
-
-<div class="container">
-  <h1>welcome to the FloofyTech webportal :)</h1>
-  <div class="warning">JUST HAVE FUN ITS NOT ALL SERIOUS! ok?</div>
-
-  <div class="grid">
-    <a href="a-a-a-test.html">A A A Test</a>
-    <a href="df2.html">Dark Floof 2</a>
-    <a href="darkfloof.html">Dark Floof</a>
-    <a href="husky-minigun-mayham.html">Husky Minigun Mayhem</a>
-    <a href="neongrid.html">Neon Grid</a>
-    <a href="wall.html">Wall</a>
-    <a href="numasfuk-interpreter.html">NUMASFUK Interpreter</a>
-    <a href="husky-pong.html">husky-pong</a>
-    <a href="https://github.com/floofytech-open-sourse-projects?tab=repositories">our things</a>
-    <a href="what-is-lydia.html">What is Lydia?</a>
-    <a href="df3.html">dark-floof-3</a>
-    <a href="df4.html">dark-floof-4</a>
-    <a href="df_judgment_day.html">dark floof judgment day</a>
-    <a href="https://archive.org/details/floof-os" target="_blank">Install FloofOS</a>
-    <a href="https://archive.org/details/floofos-2" target="_blank">Install FloofOS-2</a>
-<a href="Lyd-ai.html">lyd-AI</a>
+<div class="marquee">
+  <div class="marquee-content">
+    ⭐ WELCOME TO FLOOFYTECH RETRO
+    EDITION ⭐ THE MOST EXTREME WEB PORTAL ON THE INTERNET ⭐ FEATURING CUTTING-EDGE TECHNOLOGY ⭐
   </div>
-
-  <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
-    Go to Main Site (UNSTABLE)
-  </a>
 </div>
 
-<div class="footnote" id="lydia-foot">join the Lydia fanclub</div>
+<div class="container">
+  <h1>💥 FloofyTech Portal 💥</h1>
+  <p class="blink">⭐ JUST HAVE FUN ITS NOT ALL SERIOUS! ok? ⭐</p>
 
-<!-- Lyd‑AI Widget -->
+  <div class="grid">
+    <a href="a-a-a-test.html">🎮 A A A Test</a>
+    <a href="df2.html">🐺 Dark Floof 2</a>
+    <a href="darkfloof.html">👻 Dark Floof</a>
+    <a href="husky-minigun-mayham.html">🔫 Husky Minigun</a>
+    <a href="neongrid.html">⚡ Neon Grid</a>
+    <a href="wall.html">🧱 Wall</a>
+    <a href="numasfuk-interpreter.html">💻 NUMASFUK</a>
+    <a href="husky-pong.html">🎯 Husky Pong</a>
+    <a href="https://github.com/floofytech-open-sourse-projects?tab=repositories">📦 Our Stuff</a>
+    <a href="what-is-lydia.html">❓ What is Lydia?</a>
+    <a href="df3.html">🌙 Dark Floof 3</a>
+    <a href="df4.html">⚙️ Dark Floof 4</a>
+    <a href="df_judgment_day.html">☠️ Judgment Day</a>
+    <a href="https://archive.org/details/floof-os" target="_blank">💿 FloofOS</a>
+    <a href="https://archive.org/details/floofos-2" target="_blank">💿 FloofOS 2</a>
+    <a href="Lyd-ai.html">🤖 Lyd-AI</a>
+  </div>
+
+  <p style="margin-bottom: 20px;">
+    <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
+      🚀 VISIT MAIN SITE 🚀
+    </a>
+  </p>
+
+  <div style="font-size: 24px; margin-top: 20px;">
+    <span class="spin">⭐</span>
+    <span class="star">✨</span>
+    <span class="spin">⭐</span>
+  </div>
+</div>
+
+<div class="footnote" id="lydia-foot">★ JOIN LYDIA FANCLUB ★</div>
+
+<!-- Lyd-AI Widget -->
 <div id="floofy-widget"></div>
 
-<!-- Transformers.js -->
-<script src="https://cdn.jsdelivr.net/npm/@xenova/transformers/dist/transformers.min.js"></script>
-
 <script>
-window.onload = () => document.body.classList.add("loaded");
-
-/* BACKGROUND GRID */
-const canvas = document.getElementById("bg");
-const ctx = canvas.getContext("2d");
-
-function resize(){
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-}
-resize();
-window.addEventListener("resize", resize);
-
-let offset = 0;
-const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"];
-const cycleDuration = 120000;
-
-function lerpColor(a, b, t) {
-  const ah = parseInt(a.slice(1), 16),
-        bh = parseInt(b.slice(1), 16);
-  const ar = (ah >> 16) & 0xff,
-        ag = (ah >> 8) & 0xff,
-        ab = ah & 0xff;
-  const br = (bh >> 16) & 0xff,
-        bg = (bh >> 8) & 0xff,
-        bb = bh & 0xff;
-  const rr = Math.round(ar + (br-ar)*t);
-  const rg = Math.round(ag + (bg-ag)*t);
-  const rb = Math.round(ab + (bb-ab)*t);
-  return `rgb(${rr},${rg},${rb})`;
-}
-
-function getCurrentColor() {
-  const now = Date.now() % cycleDuration;
-  const t = now / cycleDuration * colors.length;
-  const index = Math.floor(t);
-  const nextIndex = (index + 1) % colors.length;
-  return lerpColor(colors[index], colors[nextIndex], t - index);
-}
-
-function draw(){
-  ctx.fillStyle = "rgba(0,0,0,0.25)";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  ctx.lineWidth = 2;
-  const currentColor = getCurrentColor();
-  ctx.strokeStyle = currentColor;
-
-  const spacing = 40;
-  offset += 0.5;
-
-  for(let x=-spacing; x<canvas.width+spacing; x+=spacing){
-    ctx.beginPath();
-    ctx.moveTo(x + (offset % spacing), 0);
-    ctx.lineTo(x + (offset % spacing), canvas.height);
-    ctx.stroke();
-  }
-
-  for(let y=-spacing; y<canvas.height+spacing; y+=spacing){
-    ctx.beginPath();
-    ctx.moveTo(0, y + (offset % spacing));
-    ctx.lineTo(canvas.width, y + (offset % spacing));
-    ctx.stroke();
-  }
-
-  requestAnimationFrame(draw);
-}
-draw();
+// Start the animation
+document.body.classList.add("animate");
 
 /* --- Lydia Fanclub Token --- */
 const foot = document.getElementById("lydia-foot");
 if (localStorage.getItem("lydiaFanclub") === "member") {
-  foot.textContent = "Lydia fanclub member";
+  foot.textContent = "⭐ LYDIA FANCLUB MEMBER ⭐";
 }
 foot.addEventListener("click", () => {
   localStorage.setItem("lydiaFanclub", "member");
-  foot.textContent = "thanks for joining";
-  foot.style.textShadow = "0 0 12px #0ff";
+  foot.textContent = "⭐ WELCOME TO THE CLUB ⭐";
+  foot.style.animation = "blink 0.3s infinite";
   setTimeout(() => {
-    foot.textContent = "Lydia fanclub member";
-    foot.style.textShadow = "0 0 5px #0ff";
+    foot.textContent = "⭐ LYDIA FANCLUB MEMBER ⭐";
+    foot.style.animation = "none";
   }, 2000);
 });
 
-/* --- Lyd‑AI Widget Logic --- */
+/* --- Lyd-AI Widget Logic --- */
 const widget = document.getElementById("floofy-widget");
 widget.innerHTML = `
   <button id="floofy-btn">🐺</button>
   <div id="floofy-panel">
     <div id="floofy-header">
       <div>
-       🐺 • Lyd‑AI • FloofyTech
-        <div id="floofy-sub">FloofyTech Assistant</div>
+        🐺 LYD-AI EXTREME 2005
+        <div id="floofy-sub">Your Husky Assistant</div>
       </div>
     </div>
     <div id="floofy-chat"></div>
     <div id="floofy-input-row">
-      <input id="floofy-input" placeholder="Ask Lyd‑AI…">
-      <button id="floofy-send">Send</button>
+      <input id="floofy-input" placeholder="ASK LYD-AI...">
+      <button id="floofy-send">SEND</button>
     </div>
   </div>
 `;
@@ -431,19 +557,7 @@ const chat  = document.getElementById("floofy-chat");
 const input = document.getElementById("floofy-input");
 const send  = document.getElementById("floofy-send");
 
-let pipe = null;
 let busy = false;
-
-const history = [
-  {
-    role: "system",
-    content:
-      "You are Lyd‑AI, the official FloofyTech husky assistant. " +
-      "You speak with chaotic husky energy but give clear answers. " +
-      "You may reference FloofyTech, FloofOS, DOGPACK, Floofcell, and Dogpen. " +
-      "You are fast, responsive, and always available."
-  }
-];
 
 function addMessage(role, text) {
   const div = document.createElement("div");
@@ -458,37 +572,18 @@ function addMessage(role, text) {
 }
 
 btn.onclick = () => {
-  panel.style.display = panel.style.display === "flex" ? "none" : "flex";
+  panel.classList.toggle("show");
 };
 
-async function initModel() {
-  addMessage("system", "Booting Lyd‑AI… preparing systems…");
-
-  pipe = await window.transformers.pipeline(
-    "text-generation",
-    "Xenova/Qwen2.5-0.5B-Instruct"
-  );
-
-  addMessage("assistant", "Lyd‑AI online. Systems nominal. What do you need, hooman?");
-}
-
-function buildPrompt(userText) {
-  let convo = history
-    .filter(m => m.role !== "system")
-    .map(m => `${m.role === "assistant" ? "Assistant" : "User"}: ${m.content}`)
-    .join("\n");
-
-  const sys = history.find(m => m.role === "system")?.content || "";
-
-  return (
-    `System: ${sys}\n` +
-    (convo ? convo + "\n" : "") +
-    `User: ${userText}\nAssistant:`
-  );
+function initModel() {
+  panel.classList.add("show");
+  addMessage("system", "⚡ BOOTING LYD-AI v2005.exe ⚡");
+  addMessage("system", "🔧 INITIALIZING HUSKY PROTOCOLS...");
+  addMessage("assistant", "🐺 YOOO!!! LYD-AI IS ONLINE AND READY TO ROCK!!! What's up, hooman?! Let's have some EXTREME fun!!! 🎉");
 }
 
 async function sendMsg() {
-  if (!pipe || busy) return;
+  if (busy) return;
 
   const text = input.value.trim();
   if (!text) return;
@@ -497,29 +592,27 @@ async function sendMsg() {
   addMessage("user", text);
   busy = true;
   send.disabled = true;
-
-  const prompt = buildPrompt(text);
+  send.textContent = "THINKING...";
 
   try {
-    const out = await pipe(prompt, {
-      max_new_tokens: 128,
-      temperature: 0.8,
-      top_p: 0.9,
-    });
-
-    const full = out[0].generated_text;
-    const reply = full.split("Assistant:").pop().trim();
-
+    // Simulate thinking delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Fun fallback responses
+    const responses = [
+      "🐺 WOOF WOOF!!! That's SUPER COOL!!! 🎉",
+      "🐺 AWOOOOO!!! I LOVE THAT SO MUCH!!! 💥",
+      "to floof or not to floof ... that is the question"
+    ];
+    const reply = responses[Math.floor(Math.random() * responses.length)];
     addMessage("assistant", reply);
-
-    history.push({ role: "user", content: text });
-    history.push({ role: "assistant", content: reply });
   } catch (e) {
-    console.error(e);
-    addMessage("system", "Lyd‑AI encountered an issue. Check console for details.");
+    console.error("Error:", e);
+    addMessage("assistant", "🐺 BARK!!! Something went CRAZY!!! 🐕");
   } finally {
     busy = false;
     send.disabled = false;
+    send.textContent = "SEND";
   }
 }
 
