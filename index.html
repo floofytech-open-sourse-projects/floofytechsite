@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FloofyTech Portal - EXTREME 2005</title>
+<title>FloofyTech Portal - EXTREME retro</title>
 <meta name="description" content="FloofyTech is a fun, creative web portal full of experiments, projects, and floofy chaos. Come explore and have fun!">
 
 <!-- Comic Sans baby -->
@@ -467,16 +467,15 @@ h1 {
 
 <div class="marquee">
   <div class="marquee-content">
-    ⭐ WELCOME TO FLOOFYTECH RETRO
-    EDITION ⭐ THE MOST EXTREME WEB PORTAL ON THE INTERNET ⭐ FEATURING CUTTING-EDGE TECHNOLOGY ⭐
+    ⭐ WELCOME TO FLOOFYTECH retro EDITION ⭐ THE MOST EXTREME WEB PORTAL ON THE INTERNET ⭐ FEATURING CUTTING-EDGE TECHNOLOGY ⭐
   </div>
 </div>
 
 <div class="container">
   <h1>💥 FloofyTech Portal 💥</h1>
   <p class="blink">⭐ JUST HAVE FUN ITS NOT ALL SERIOUS! ok? ⭐</p>
-
-  <div class="grid">
+  
+  <nav class="grid">
     <a href="a-a-a-test.html">🎮 A A A Test</a>
     <a href="df2.html">🐺 Dark Floof 2</a>
     <a href="darkfloof.html">👻 Dark Floof</a>
@@ -493,7 +492,7 @@ h1 {
     <a href="https://archive.org/details/floof-os" target="_blank">💿 FloofOS</a>
     <a href="https://archive.org/details/floofos-2" target="_blank">💿 FloofOS 2</a>
     <a href="Lyd-ai.html">🤖 Lyd-AI</a>
-  </div>
+  </nav>
 
   <p style="margin-bottom: 20px;">
     <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
@@ -508,10 +507,25 @@ h1 {
   </div>
 </div>
 
-<div class="footnote" id="lydia-foot">★ JOIN LYDIA FANCLUB ★</div>
+<!-- Lyd-AI Chat Widget -->
+<div id="floofy-widget">
+  <button id="floofy-btn" aria-label="Open Lyd-AI chat">🐺</button>
+  <div id="floofy-panel" role="dialog" aria-label="Lyd-AI Assistant">
+    <div id="floofy-header">
+      <div>
+        🐺 LYD-AI EXTREME 2005
+        <div id="floofy-sub">Your Husky Assistant</div>
+      </div>
+    </div>
+    <div id="floofy-chat" role="log" aria-label="Chat messages"></div>
+    <div id="floofy-input-row">
+      <input id="floofy-input" placeholder="ASK LYD-AI..." aria-label="Chat input">
+      <button id="floofy-send" aria-label="Send message">SEND</button>
+    </div>
+  </div>
+</div>
 
-<!-- Lyd-AI Widget -->
-<div id="floofy-widget"></div>
+<div class="footnote" id="lydia-foot">★ JOIN LYDIA FANCLUB ★</div>
 
 <script>
 // Start the animation
@@ -533,24 +547,6 @@ foot.addEventListener("click", () => {
 });
 
 /* --- Lyd-AI Widget Logic --- */
-const widget = document.getElementById("floofy-widget");
-widget.innerHTML = `
-  <button id="floofy-btn">🐺</button>
-  <div id="floofy-panel">
-    <div id="floofy-header">
-      <div>
-        🐺 LYD-AI EXTREME 2005
-        <div id="floofy-sub">Your Husky Assistant</div>
-      </div>
-    </div>
-    <div id="floofy-chat"></div>
-    <div id="floofy-input-row">
-      <input id="floofy-input" placeholder="ASK LYD-AI...">
-      <button id="floofy-send">SEND</button>
-    </div>
-  </div>
-`;
-
 const btn   = document.getElementById("floofy-btn");
 const panel = document.getElementById("floofy-panel");
 const chat  = document.getElementById("floofy-chat");
@@ -558,6 +554,7 @@ const input = document.getElementById("floofy-input");
 const send  = document.getElementById("floofy-send");
 
 let busy = false;
+const conversationHistory = [];
 
 function addMessage(role, text) {
   const div = document.createElement("div");
@@ -569,6 +566,53 @@ function addMessage(role, text) {
   div.textContent = text;
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
+}
+
+async function generateResponse(text) {
+  try {
+    // Use Mistral API (free, no auth needed)
+    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "mistral-tiny",
+        messages: [
+          {
+            role: "system",
+            content: `You are Lyd-AI, the EXTREME husky assistant from FloofyTech 2005! You speak with crazy chaotic husky energy and LOVE excitement!!! 
+Use lots of CAPS, exclamation marks!!!, and emojis. Keep responses SHORT (1-2 sentences max).
+Be fun, silly, and totally rad about anything the user asks!
+STAY IN CHARACTER as an extreme 2005 husky with maximum personality!!!`
+          },
+          ...conversationHistory,
+          { role: "user", content: text }
+        ],
+        temperature: 0.8,
+        max_tokens: 150
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+      }
+    }
+  } catch (e) {
+    console.error("API Error:", e);
+  }
+  
+  // Fallback if API fails
+  const fallbacks = [
+    "🐺 WOOF WOOF!!! That's SUPER COOL!!! 🎉",
+    "🐺 AWOOOOO!!! I LOVE THAT SO MUCH!!! 💥",
+    "🐺 YOOO!!! YOU'RE TOTALLY AWESOME!!! 🔥",
+    "🐺 EXTREME!!! LET'S GOOOOO RIGHT NOW!!! 🚀",
+    "🐺 BARK BARK BARK!!! SO RAD DUDE!!! ⚡",
+  ];
+  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
 }
 
 btn.onclick = () => {
@@ -595,20 +639,16 @@ async function sendMsg() {
   send.textContent = "THINKING...";
 
   try {
-    // Simulate thinking delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // Generate real AI response
+    const reply = await generateResponse(text);
     
-    // Fun fallback responses
-    const responses = [
-      "🐺 WOOF WOOF!!! That's SUPER COOL!!! 🎉",
-      "🐺 AWOOOOO!!! I LOVE THAT SO MUCH!!! 💥",
-      "to floof or not to floof ... that is the question"
-    ];
-    const reply = responses[Math.floor(Math.random() * responses.length)];
     addMessage("assistant", reply);
+    conversationHistory.push({ role: "user", content: text });
+    conversationHistory.push({ role: "assistant", content: reply });
+
   } catch (e) {
     console.error("Error:", e);
-    addMessage("assistant", "🐺 BARK!!! Something went CRAZY!!! 🐕");
+    addMessage("assistant", "🐺 BARK!!! SOMETHING WENT CRAZY!!! 🐕");
   } finally {
     busy = false;
     send.disabled = false;
