@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dogpen Write</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+        header { background: white; border-bottom: 3px solid #e74c3c; padding: 1.5rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: 800; }
+        .btn { background: #e74c3c; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; margin: 0 0.5rem; font-size: 0.9rem; font-weight: 600; }
+        .btn:hover { background: #c0392b; transform: translateY(-2px); }
+        .btn-secondary { background: #3498db; }
+        .btn-secondary:hover { background: #2980b9; }
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+        .layout { display: grid; grid-template-columns: 250px 1fr; gap: 2rem; }
+        .sidebar { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .sidebar-title { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; margin-bottom: 1rem; color: #7f8c8d; }
+        .search-box { width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; margin-bottom: 1rem; }
+        .search-box:focus { outline: none; border-color: #e74c3c; }
+        .notes-list { list-style: none; }
+        .note-item { background: #f8f9fa; padding: 0.75rem; border-left: 4px solid #e74c3c; margin-bottom: 0.5rem; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+        .note-item:hover { background: #ecf0f1; }
+        .note-item.active { background: #fff3e0; border-left-color: #3498db; }
+        .note-title { font-weight: 600; }
+        .note-preview { font-size: 0.8rem; color: #7f8c8d; }
+        .main-content { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .editor-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #ecf0f1; }
+        .editor-title input { font-size: 1.8rem; font-weight: 700; width: 100%; border: none; padding: 0.5rem 0; }
+        .editor-title input:focus { outline: none; border-bottom: 2px solid #e74c3c; }
+        .toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+        .toolbar-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 0.6rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: all 0.3s; }
+        .toolbar-btn:hover { background: #e74c3c; color: white; }
+        .editor-content { width: 100%; height: 350px; padding: 1rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; resize: vertical; font-family: inherit; }
+        .editor-content:focus { outline: none; border-color: #e74c3c; }
+        .editor-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 2px solid #ecf0f1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .editor-meta { color: #7f8c8d; font-size: 0.85rem; }
+        .empty-state { text-align: center; padding: 3rem; }
+        .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+        @media (max-width: 1024px) { .layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dogpen-home.html" class="logo" style="text-decoration: none; color: inherit;">🐺 Dogpen Write</a>
+            <div>
+                <input type="file" id="fileImport" multiple accept=".docx,.txt,.md,.xlsx,.csv" style="display:none;">
+                <button class="btn" onclick="document.getElementById('fileImport').click()">📂 Import</button>
+                <button class="btn btn-secondary" onclick="exportNotes()">📥 Export</button>
+                <button class="btn" onclick="createNewNote()">✍️ New</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="layout">
+            <div class="sidebar">
+                <div class="sidebar-title">Search</div>
+                <input type="text" class="search-box" id="searchBox" placeholder="Search notes..." onkeyup="filterNotes(this.value)">
+                
+                <div class="sidebar-title" style="margin-top:2rem;">Notes</div>
+                <ul class="notes-list" id="notesList"></ul>
+            </div>
+
+            <div class="main-content">
+                <div id="emptyState" class="empty-state">
+                    <div class="empty-icon">📝</div>
+                    <p>No notes yet. Create one to get started!</p>
+                    <button class="btn" onclick="createNewNote()" style="margin-top:1rem;">Create First Note</button>
+                </div>
+
+                <div id="editor" style="display:none;">
+                    <div class="editor-header">
+                        <div class="editor-title">
+                            <input type="text" id="noteTitle" placeholder="Note Title">
+                        </div>
+                    </div>
+
+                    <div class="toolbar">
+                        <button class="toolbar-btn" onclick="insertMarkdown('**', '**')">𝐁 Bold</button>
+                        <button class="toolbar-btn" onclick="insertMarkdown('*', '*')">𝘐 Italic</button>
+                        <button class="toolbar-btn" onclick="insertMarkdown('`', '`')">&lt;/&gt; Code</button>
+                        <button class="toolbar-btn" onclick="insertMarkdown('~~', '~~')">S̶ Strike</button>
+                    </div>
+
+                    <textarea id="noteContent" class="editor-content" placeholder="Start typing your note..."></textarea>
+
+                    <div class="editor-footer">
+                        <div class="editor-meta">
+                            <span id="wordCount">0 words</span> • <span id="charCount">0 chars</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-secondary" onclick="saveCurrentNote()">💾 Save</button>
+                            <button class="btn btn-secondary" onclick="shareNote()">📤 Share</button>
+                            <button class="btn" onclick="deleteCurrentNote()" style="background:#e74c3c;">🗑️ Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let notes = JSON.parse(localStorage.getItem('dogpen_notes') || '[]');
+        let currentNote = null;
+
+        function createNewNote() {
+            currentNote = { id: Date.now(), title: '', content: '', created: new Date().toISOString() };
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('editor').style.display = 'block';
+            document.getElementById('noteTitle').value = '';
+            document.getElementById('noteContent').value = '';
+            document.getElementById('noteTitle').focus();
+            updateStats();
+        }
+
+        function saveCurrentNote() {
+            if (!currentNote) return;
+            currentNote.title = document.getElementById('noteTitle').value || 'Untitled';
+            currentNote.content = document.getElementById('noteContent').value;
+            const idx = notes.findIndex(n => n.id === currentNote.id);
+            if (idx >= 0) notes[idx] = currentNote;
+            else notes.push(currentNote);
+            localStorage.setItem('dogpen_notes', JSON.stringify(notes));
+            renderNotes();
+            alert('✅ Note saved!');
+        }
+
+        function deleteCurrentNote() {
+            if (!currentNote || !confirm('Delete this note?')) return;
+            notes = notes.filter(n => n.id !== currentNote.id);
+            localStorage.setItem('dogpen_notes', JSON.stringify(notes));
+            currentNote = null;
+            renderNotes();
+            document.getElementById('editor').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+
+        function shareNote() {
+            if (!currentNote) return;
+            const text = (currentNote.title || 'Untitled') + '\n\n' + currentNote.content + '\n\n---\nShared from Dogpen Write 🐺';
+            navigator.clipboard.writeText(text);
+            alert('✅ Copied to clipboard!');
+        }
+
+        function exportNotes() {
+            const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'dogpen-notes-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function selectNote(id) {
+            currentNote = notes.find(n => n.id === id);
+            if (!currentNote) return;
+            document.getElementById('noteTitle').value = currentNote.title;
+            document.getElementById('noteContent').value = currentNote.content;
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('editor').style.display = 'block';
+            updateStats();
+            renderNotes();
+        }
+
+        function renderNotes() {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '';
+            const sorted = [...notes].sort((a, b) => new Date(b.created) - new Date(a.created));
+            sorted.forEach(note => {
+                const li = document.createElement('li');
+                li.className = 'note-item' + (currentNote && currentNote.id === note.id ? ' active' : '');
+                li.onclick = () => selectNote(note.id);
+                li.innerHTML = `<div class="note-title">${note.title || 'Untitled'}</div><div class="note-preview">${note.content.substring(0, 40)}...</div>`;
+                list.appendChild(li);
+            });
+        }
+
+        function filterNotes(q) {
+            const list = document.getElementById('notesList');
+            list.innerHTML = '';
+            const filtered = notes.filter(n => n.title.toLowerCase().includes(q.toLowerCase()) || n.content.toLowerCase().includes(q.toLowerCase()));
+            filtered.forEach(note => {
+                const li = document.createElement('li');
+                li.className = 'note-item';
+                li.onclick = () => selectNote(note.id);
+                li.innerHTML = `<div class="note-title">${note.title || 'Untitled'}</div><div class="note-preview">${note.content.substring(0, 40)}...</div>`;
+                list.appendChild(li);
+            });
+        }
+
+        function insertMarkdown(before, after) {
+            const ta = document.getElementById('noteContent');
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            const text = ta.value;
+            const selected = text.substring(start, end);
+            ta.value = text.substring(0, start) + before + selected + after + text.substring(end);
+            ta.focus();
+            updateStats();
+        }
+
+        function updateStats() {
+            const content = document.getElementById('noteContent').value;
+            const words = content.split(/\s+/).filter(w => w).length;
+            document.getElementById('wordCount').textContent = words + ' words';
+            document.getElementById('charCount').textContent = content.length + ' chars';
+        }
+
+        document.getElementById('fileImport').addEventListener('change', function(e) {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    notes.push({ 
+                        id: Date.now(), 
+                        title: file.name.split('.')[0], 
+                        content: ev.target.result, 
+                        created: new Date().toISOString() 
+                    });
+                    localStorage.setItem('dogpen_notes', JSON.stringify(notes));
+                    renderNotes();
+                    alert('✅ Imported: ' + file.name);
+                };
+                reader.readAsText(file);
+            });
+        });
+
+        document.getElementById('noteContent').addEventListener('keyup', updateStats);
+        renderNotes();
+    </script>
+</body>
+</html>

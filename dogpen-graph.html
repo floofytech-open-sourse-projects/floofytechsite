@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dogpen Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+        header { background: white; border-bottom: 3px solid #e74c3c; padding: 1.5rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+        .logo { font-size: 1.5rem; font-weight: 800; }
+        .btn { background: #e74c3c; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 6px; cursor: pointer; margin: 0 0.25rem; font-size: 0.85rem; font-weight: 600; }
+        .btn:hover { background: #c0392b; }
+        .container { max-width: 1400px; margin: 2rem auto; padding: 0 2rem; }
+        .toolbar { margin-bottom: 2rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .spreadsheet-container { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: #2c3e50; color: white; padding: 0.75rem; text-align: left; font-weight: 600; }
+        td { border: 1px solid #ddd; padding: 0.75rem; }
+        input[type="text"], input[type="number"] { width: 100%; border: none; padding: 0.5rem; box-sizing: border-box; }
+        input:focus { outline: 1px solid #e74c3c; }
+        tr:hover { background: #f8f9fa; }
+        .chart-container { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-box { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: #e74c3c; }
+        .stat-label { font-size: 0.85rem; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dogpen-home.html" class="logo" style="text-decoration: none; color: inherit;">📊 Dogpen Graph</a>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <input type="file" id="csvImport" accept=".csv,.xlsx" style="display:none;">
+                <button class="btn" onclick="document.getElementById('csvImport').click()">📂 Import</button>
+                <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="toolbar">
+            <button class="btn" onclick="addRow()">➕ Add Row</button>
+            <button class="btn" onclick="addColumn()">➕ Add Column</button>
+            <button class="btn" onclick="deleteLastRow()">🗑️ Delete Row</button>
+            <button class="btn" onclick="updateChart('line')">📈 Line Chart</button>
+            <button class="btn" onclick="updateChart('bar')">📊 Bar Chart</button>
+            <button class="btn" onclick="updateChart('pie')">🥧 Pie Chart</button>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="spreadsheet-container">
+            <table id="spreadsheet"></table>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="myChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let data = JSON.parse(localStorage.getItem('dogpen_sheets') || '[[["Name", "Q1", "Q2", "Q3", "Q4"], ["Product A", 100, 150, 120, 180], ["Product B", 80, 120, 100, 140]]]');
+        let sheet = data[0];
+        let chart = null;
+
+        function renderSpreadsheet() {
+            const table = document.getElementById('spreadsheet');
+            table.innerHTML = '';
+            
+            for (let r = 0; r < sheet.length; r++) {
+                const row = table.insertRow();
+                for (let c = 0; c < sheet[r].length; c++) {
+                    const cell = row.insertCell();
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = sheet[r][c] || '';
+                    input.onchange = () => { sheet[r][c] = input.value; saveData(); updateStats(); updateChart('bar'); };
+                    cell.appendChild(input);
+                }
+            }
+        }
+
+        function addRow() {
+            const cols = sheet[0].length;
+            sheet.push(new Array(cols).fill(''));
+            renderSpreadsheet();
+            saveData();
+        }
+
+        function addColumn() {
+            sheet.forEach(row => row.push(''));
+            renderSpreadsheet();
+            saveData();
+        }
+
+        function deleteLastRow() {
+            if (sheet.length > 1) {
+                sheet.pop();
+                renderSpreadsheet();
+                saveData();
+            }
+        }
+
+        function updateStats() {
+            let sum = 0, count = 0, avg = 0;
+            for (let r = 1; r < sheet.length; r++) {
+                for (let c = 1; c < sheet[r].length; c++) {
+                    const val = parseFloat(sheet[r][c]);
+                    if (!isNaN(val)) { sum += val; count++; }
+                }
+            }
+            avg = count > 0 ? (sum / count).toFixed(2) : 0;
+            
+            document.getElementById('stats').innerHTML = `
+                <div class="stat-box"><div class="stat-value">${count}</div><div class="stat-label">Values</div></div>
+                <div class="stat-box"><div class="stat-value">${sum.toFixed(0)}</div><div class="stat-label">Sum</div></div>
+                <div class="stat-box"><div class="stat-value">${avg}</div><div class="stat-label">Average</div></div>
+                <div class="stat-box"><div class="stat-value">${sheet.length - 1}</div><div class="stat-label">Rows</div></div>
+            `;
+        }
+
+        function updateChart(type) {
+            const labels = sheet[0].slice(1);
+            const datasets = [];
+            const colors = ['#e74c3c', '#3498db', '#27ae60', '#f39c12', '#9b59b6'];
+            
+            for (let r = 1; r < sheet.length; r++) {
+                const values = sheet[r].slice(1).map(v => parseFloat(v) || 0);
+                datasets.push({
+                    label: sheet[r][0],
+                    data: values,
+                    backgroundColor: colors[(r-1) % colors.length],
+                    borderColor: colors[(r-1) % colors.length],
+                    tension: 0.3,
+                    fill: false
+                });
+            }
+            
+            if (chart) chart.destroy();
+            chart = new Chart(document.getElementById('myChart'), {
+                type: type,
+                data: { labels, datasets },
+                options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            });
+        }
+
+        function exportCSV() {
+            let csv = '';
+            sheet.forEach(row => csv += row.join(',') + '\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'data-' + new Date().toISOString().split('T')[0] + '.csv';
+            a.click();
+        }
+
+        function saveData() {
+            localStorage.setItem('dogpen_sheets', JSON.stringify(data));
+        }
+
+        document.getElementById('csvImport').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'xlsx') {
+                    const workbook = XLSX.read(ev.target.result, {type: 'array'});
+                    const ws = workbook.Sheets[workbook.SheetNames[0]];
+                    sheet = XLSX.utils.sheet_to_json(ws, {header: 1});
+                } else {
+                    sheet = ev.target.result.split('\n').map(row => row.split(','));
+                }
+                renderSpreadsheet();
+                updateStats();
+                updateChart('bar');
+                saveData();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        renderSpreadsheet();
+        updateStats();
+        updateChart('bar');
+    </script>
+</body>
+</html>
