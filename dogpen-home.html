@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dogpen - Husky Productivity Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2c3e50;
+            --secondary: #e74c3c;
+            --accent: #3498db;
+            --success: #27ae60;
+            --white: #ffffff;
+            --text-dark: #1a1a1a;
+            --text-muted: #7f8c8d;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, #1a252f 100%);
+            color: var(--text-dark);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--white);
+            border-bottom: 3px solid var(--secondary);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-mark {
+            font-size: 2rem;
+            animation: tailwag 1s ease-in-out infinite;
+        }
+
+        @keyframes tailwag {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(-15deg); }
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .header-nav a {
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .header-nav a:hover {
+            background: var(--accent);
+            color: var(--white);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--white);
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 900;
+            margin-bottom: 1rem;
+            letter-spacing: -2px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .hero p {
+            font-size: 1.5rem;
+            opacity: 0.95;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .module-card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            text-align: center;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .module-card.write::before {
+            background: linear-gradient(90deg, #e74c3c, #e67e22);
+        }
+
+        .module-card.graph::before {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+        }
+
+        .module-card.animate::before {
+            background: linear-gradient(90deg, #27ae60, #16a085);
+        }
+
+        .module-card.tasks::before {
+            background: linear-gradient(90deg, #9b59b6, #8e44ad);
+        }
+
+        .module-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .module-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .module-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+
+        .module-desc {
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        .module-features {
+            text-align: left;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .module-features li {
+            list-style: none;
+            padding: 0.25rem 0;
+            color: var(--text-muted);
+        }
+
+        .module-features li:before {
+            content: "✓ ";
+            color: var(--secondary);
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .btn-enter {
+            background: var(--secondary);
+            color: var(--white);
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-enter:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        .stats-section {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .stats-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ecf0f1 100%);
+            border-radius: 8px;
+            border-left: 4px solid var(--secondary);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255,255,255,0.7);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 4rem;
+        }
+
+        .feature-list {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+
+        .feature-list h2 {
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature {
+            padding: 1.5rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .feature h3 {
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        .feature p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1.2rem;
+            }
+
+            .modules-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .paw-bg {
+            position: relative;
+        }
+
+        .paw-bg::after {
+            content: "🐾";
+            position: absolute;
+            font-size: 150px;
+            opacity: 0.05;
+            top: -50px;
+            right: -50px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-mark">🐺</span>
+                <span>Dogpen</span>
+            </div>
+            <div class="header-nav">
+                <a href="#modules">Tools</a>
+                <a href="#features">Features</a>
+                <a href="#stats">Stats</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="hero paw-bg">
+        <h1>🐺 Dogpen Productivity Pack</h1>
+        <p>Unleash your potential with husky-powered tools. Stay focused, organized, and unstoppable.</p>
+    </div>
+
+    <div class="container">
+        <!-- Modules Section -->
+        <section id="modules">
+            <div class="modules-grid">
+                <!-- Dogpen Write -->
+                <a href="dogpen-write-fixed.html" class="module-card write">
+                    <div class="module-icon">📝</div>
+                    <div class="module-name">Dogpen Write</div>
+                    <p class="module-desc">Craft and organize your thoughts with intelligent note-taking.</p>
+                    <ul class="module-features">
+                        <li>Rich text notes</li>
+                        <li>Tag system</li>
+                        <li>Full-text search</li>
+                        <li>Auto-save</li>
+                    </ul>
+                    <button class="btn-enter">Enter Write</button>
+                </a>
+
+                <!-- Dogpen Graph -->
+                <a href="dogpen-graph-fixed.html" class="module-card graph">
+                    <div class="module-icon">📊</div>
+                    <div class="module-name">Dogpen Graph</div>
+                    <p class="module-desc">Visualize your progress with beautiful charts and analytics.</p>
+                    <ul class="module-features">
+                        <li>Real-time charts</li>
+                        <li>Custom metrics</li>
+                        <li>Trend analysis</li>
+                        <li>Data export</li>
+                    </ul>
+                    <button class="btn-enter">Enter Graph</button>
+                </a>
+
+                <!-- Dogpen Animate -->
+                <a href="dogpen-animate-fixed.html" class="module-card animate">
+                    <div class="module-icon">🎬</div>
+                    <div class="module-name">Dogpen Animate</div>
+                    <p class="module-desc">Create stunning slideshows to present your ideas.</p>
+                    <ul class="module-features">
+                        <li>Slide editor</li>
+                        <li>Animations</li>
+                        <li>Presentations</li>
+                        <li>Export slides</li>
+                    </ul>
+                    <button class="btn-enter">Enter Animate</button>
+                </a>
+
+                <!-- Dogpen Tasks -->
+                <a href="dogpen.html" class="module-card tasks">
+                    <div class="module-icon">🎯</div>
+                    <div class="module-name">Dogpen Tasks</div>
+                    <p class="module-desc">Manage tasks, goals, and track your productivity metrics.</p>
+                    <ul class="module-features">
+                        <li>Task manager</li>
+                        <li>Goal tracking</li>
+                        <li>Pomodoro timer</li>
+                        <li>Analytics</li>
+                    </ul>
+                    <button class="btn-enter">Enter Tasks</button>
+                </a>
+
+                <!-- Dogpen Art -->
+                <a href="dogpen-art.html" class="module-card" style="border-top-color: #f39c12; border-top: 4px solid;">
+                    <div class="module-icon">🎨</div>
+                    <div class="module-name">Dogpen Art</div>
+                    <p class="module-desc">Draw, sketch, and create beautiful artwork.</p>
+                    <ul class="module-features">
+                        <li>Canvas drawing</li>
+                        <li>Multiple tools</li>
+                        <li>Shapes & lines</li>
+                        <li>Export PNG</li>
+                    </ul>
+                    <button class="btn-enter">Enter Art</button>
+                </a>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section id="features" class="feature-list">
+            <h2>🎯 Suite Features</h2>
+            <div class="features">
+                <div class="feature">
+                    <h3>🔄 Seamless Integration</h3>
+                    <p>All modules work together with synchronized data and shared exports.</p>
+                </div>
+                <div class="feature">
+                    <h3>💾 Local Storage</h3>
+                    <p>Your data stays on your device. No cloud sync, no tracking.</p>
+                </div>
+                <div class="feature">
+                    <h3>📱 Responsive Design</h3>
+                    <p>Beautiful on desktop, tablet, and mobile devices.</p>
+                </div>
+                <div class="feature">
+                    <h3>⚡ Performance</h3>
+                    <p>Built with Opal (Ruby to JavaScript) for speed and reliability.</p>
+                </div>
+                <div class="feature">
+                    <h3>🎨 Husky Themed</h3>
+                    <p>Arctic-inspired design with consistency across all modules.</p>
+                </div>
+                <div class="feature">
+                    <h3>📤 Export Everything</h3>
+                    <p>Export your data in JSON format whenever you need.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Section -->
+        <section id="stats" class="stats-section">
+            <div class="stats-title">Your Dogpen Pack</div>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-number" id="totalNotes">0</div>
+                    <div class="stat-label">Total Notes</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #3498db;">
+                    <div class="stat-number" id="totalTasks">0</div>
+                    <div class="stat-label">Tasks Created</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #27ae60;">
+                    <div class="stat-number" id="totalGoals">0</div>
+                    <div class="stat-label">Goals Set</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #9b59b6;">
+                    <div class="stat-number" id="totalSlides">0</div>
+                    <div class="stat-label">Slides Made</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>🐺 Dogpen • Where Huskies Meet Productivity • Built with ❤️ and Opal</p>
+    </footer>
+
+    <script type="text/ruby">
+        class DogpenHome
+          def initialize
+            load_stats
+            setup_event_listeners
+          end
+
+          def setup_event_listeners
+            # Smooth scroll navigation
+            document.querySelectorAll("a[href^='#']").forEach do |link|
+              link.addEventListener("click") do |e|
+                e.preventDefault
+                target = document.querySelector(link.getAttribute("href"))
+                target.scrollIntoView(behavior: "smooth") if target
+              end
+            end
+
+            # Module card links
+            document.querySelectorAll(".module-card").forEach do |card|
+              card.addEventListener("click") do |e|
+                href = card.getAttribute("href")
+                window.location.href = href if href
+              end
+            end
+          end
+
+          def load_stats
+            notes_count = JSON.parse(localStorage.getItem("dogpen_notes") || "[]").length
+            tasks_count = JSON.parse(localStorage.getItem("dogpen_tasks") || "[]").length
+            goals_count = JSON.parse(localStorage.getItem("dogpen_goals") || "[]").length
+            slides_count = JSON.parse(localStorage.getItem("dogpen_slides") || "[]").length
+
+            document.getElementById("totalNotes").textContent = notes_count.to_s
+            document.getElementById("totalTasks").textContent = tasks_count.to_s
+            document.getElementById("totalGoals").textContent = goals_count.to_s
+            document.getElementById("totalSlides").textContent = slides_count.to_s
+          end
+        end
+
+        `document.addEventListener("DOMContentLoaded", function() { window.dogpen_home = new DogpenHome(); });`
+    </script>
+</body>
+</html>
