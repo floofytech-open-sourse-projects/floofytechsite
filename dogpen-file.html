@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dogpen File - Cloud Storage</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+
+        body.dark-mode {
+            background: #1a1a1a;
+            color: #e0e0e0;
+        }
+
+        header {
+            background: white;
+            border-bottom: 3px solid #e74c3c;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode header {
+            background: #2a2a2a;
+            border-bottom-color: #e74c3c;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+
+        .btn:hover { background: #c0392b; transform: translateY(-2px); }
+        .btn-secondary { background: #3498db; }
+        .btn-secondary:hover { background: #2980b9; }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .toolbar {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode .toolbar {
+            background: #2a2a2a;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        body.dark-mode .search-box {
+            background: #333;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .file-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode .file-card {
+            background: #2a2a2a;
+        }
+
+        .file-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .file-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .file-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            word-break: break-word;
+        }
+
+        .file-date {
+            font-size: 0.8rem;
+            color: #999;
+            margin-bottom: 1rem;
+        }
+
+        body.dark-mode .file-date {
+            color: #888;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .file-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        body.dark-mode .file-btn {
+            background: #333;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        .file-btn:hover { background: #f5f5f5; border-color: #e74c3c; }
+        body.dark-mode .file-btn:hover { background: #444; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode .stat-box {
+            background: #2a2a2a;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: #999;
+            margin-top: 0.5rem;
+        }
+
+        body.dark-mode .stat-label {
+            color: #888;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            background: white;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        body.dark-mode .empty-state {
+            background: #2a2a2a;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .theme-toggle {
+            padding: 0.5rem 1rem;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        body.dark-mode .theme-toggle {
+            background: #333;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show { display: flex; }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        body.dark-mode .modal-content {
+            background: #2a2a2a;
+        }
+
+        .modal-header {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        body.dark-mode .modal-input {
+            background: #333;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+
+        .share-code {
+            background: #f5f5f5;
+            border: 2px solid #e74c3c;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e74c3c;
+            word-break: break-all;
+        }
+
+        body.dark-mode .share-code {
+            background: #333;
+            border-color: #e74c3c;
+        }
+
+        .share-badge {
+            display: inline-block;
+            background: #27ae60;
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <a href="dogpen-home.html" class="logo" style="text-decoration: none; color: inherit;">
+                ☁️ Dogpen File
+            </a>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="connectGoogleDrive()">🔗 Connect Google Drive</button>
+                <button class="theme-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+                <button class="btn" onclick="openUploadModal()">📤 Upload</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Stats -->
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-value" id="fileCount">0</div>
+                <div class="stat-label">Files</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="folderCount">0</div>
+                <div class="stat-label">Folders</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="totalSize">0 MB</div>
+                <div class="stat-label">Total Size</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="lastSync">Never</div>
+                <div class="stat-label">Last Sync</div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="search-box" id="searchBox" placeholder="Search files..." onkeyup="filterFiles(this.value)">
+            <button class="btn btn-secondary" onclick="syncFiles()">🔄 Sync</button>
+            <button class="btn btn-secondary" onclick="sortFiles()">↑↓ Sort</button>
+            <button class="btn" onclick="createFolder()">📁 New Folder</button>
+        </div>
+
+        <!-- File Grid -->
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">☁️</div>
+            <p>No files yet. Connect Google Drive or upload files to get started!</p>
+            <button class="btn" onclick="connectGoogleDrive()" style="margin-top: 1rem;">Connect Google Drive</button>
+        </div>
+
+        <div class="file-grid" id="fileGrid"></div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal" id="uploadModal">
+        <div class="modal-content">
+            <div class="modal-header">Upload File</div>
+            <input type="file" id="fileInput" class="modal-input">
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                <button class="btn" onclick="uploadFile()">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Folder Modal -->
+    <div class="modal" id="folderModal">
+        <div class="modal-content">
+            <div class="modal-header">New Folder</div>
+            <input type="text" id="folderName" class="modal-input" placeholder="Folder name...">
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeFolderModal()">Cancel</button>
+                <button class="btn" onclick="createFolderSubmit()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Code Modal -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content">
+            <div class="modal-header">Share File</div>
+            <p style="margin-bottom: 1rem; color: #666;">Share your file with others using this code:</p>
+            
+            <div class="share-code" id="shareCode">XXXX-XXXX-XXXX</div>
+            
+            <button class="btn" onclick="copyShareCode()" style="width: 100%; margin-bottom: 1rem;">📋 Copy Code</button>
+
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="font-size: 0.85rem; color: #999;">Share this code with others to access this file</p>
+            </div>
+
+            <div class="modal-buttons" style="margin-top: 2rem;">
+                <button class="btn" onclick="closeShareModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Access Shared File Modal -->
+    <div class="modal" id="accessModal">
+        <div class="modal-content">
+            <div class="modal-header">Access Shared File</div>
+            <p style="margin-bottom: 1rem; color: #666;">Enter the share code to access a file:</p>
+            
+            <input type="text" id="accessCode" class="modal-input" placeholder="Enter share code (e.g., XXXX-XXXX-XXXX)">
+            
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeAccessModal()">Cancel</button>
+                <button class="btn" onclick="accessSharedFile()">Access File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let files = JSON.parse(localStorage.getItem('dogpen_files') || '[]');
+        let darkMode = localStorage.getItem('dogpen_darkMode') === 'true';
+        let sharedFiles = JSON.parse(localStorage.getItem('dogpen_shared_files') || '{}');
+        let currentShareFileId = null;
+
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('dogpen_darkMode', darkMode);
+        }
+
+        function connectGoogleDrive() {
+            alert('📋 Google Drive integration setup:\n\n1. Visit console.cloud.google.com\n2. Create a new project\n3. Enable Google Drive API\n4. Create OAuth 2.0 credentials\n5. Paste Client ID here\n\nFor now, you can upload files locally!');
+        }
+
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('show');
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('show');
+        }
+
+        function createFolder() {
+            document.getElementById('folderModal').classList.add('show');
+        }
+
+        function closeFolderModal() {
+            document.getElementById('folderModal').classList.remove('show');
+        }
+
+        function uploadFile() {
+            const input = document.getElementById('fileInput');
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                files.push({
+                    id: Date.now(),
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    created: new Date().toISOString(),
+                    data: e.target.result
+                });
+                saveFiles();
+                renderFiles();
+                closeUploadModal();
+                input.value = '';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function createFolderSubmit() {
+            const name = document.getElementById('folderName').value.trim();
+            if (!name) return;
+
+            files.push({
+                id: Date.now(),
+                name: name,
+                type: 'folder',
+                created: new Date().toISOString()
+            });
+            saveFiles();
+            renderFiles();
+            closeFolderModal();
+            document.getElementById('folderName').value = '';
+        }
+
+        function deleteFile(id) {
+            if (confirm('Delete this file?')) {
+                files = files.filter(f => f.id !== id);
+                saveFiles();
+                renderFiles();
+            }
+        }
+
+        function downloadFile(id) {
+            const file = files.find(f => f.id === id);
+            if (file && file.data) {
+                const blob = new Blob([file.data]);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = file.name;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function renderFiles() {
+            const grid = document.getElementById('fileGrid');
+            const empty = document.getElementById('emptyState');
+
+            if (files.length === 0) {
+                grid.innerHTML = '';
+                empty.style.display = 'block';
+                updateStats();
+                return;
+            }
+
+            empty.style.display = 'none';
+            grid.innerHTML = '';
+
+            files.forEach(file => {
+                const card = document.createElement('div');
+                card.className = 'file-card';
+                const icon = file.type === 'folder' ? '📁' : '📄';
+                const date = new Date(file.created).toLocaleDateString();
+                card.innerHTML = `
+                    <div class="file-icon">${icon}</div>
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-date">${date}</div>
+                    <div class="file-actions">
+                        ${file.type !== 'folder' ? `<button class="file-btn" onclick="downloadFile(${file.id})">📥</button>` : ''}
+                        <button class="file-btn" onclick="shareFile(${file.id})">🔗</button>
+                        <button class="file-btn" onclick="deleteFile(${file.id})">🗑️</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            updateStats();
+        }
+
+        function filterFiles(query) {
+            const cards = document.querySelectorAll('.file-card');
+            cards.forEach(card => {
+                const name = card.querySelector('.file-name').textContent.toLowerCase();
+                card.style.display = name.includes(query.toLowerCase()) ? 'block' : 'none';
+            });
+        }
+
+        function sortFiles() {
+            files.sort((a, b) => new Date(b.created) - new Date(a.created));
+            saveFiles();
+            renderFiles();
+        }
+
+        function syncFiles() {
+            const now = new Date().toLocaleTimeString();
+            document.getElementById('lastSync').textContent = now.split(' ')[0];
+            alert('✅ Synced! (Local sync - set up Google Drive for cloud sync)');
+        }
+
+        function updateStats() {
+            const fileCount = files.filter(f => f.type !== 'folder').length;
+            const folderCount = files.filter(f => f.type === 'folder').length;
+            let totalSize = 0;
+            files.forEach(f => {
+                if (f.size) totalSize += f.size;
+            });
+            const sizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+
+            document.getElementById('fileCount').textContent = fileCount;
+            document.getElementById('folderCount').textContent = folderCount;
+            document.getElementById('totalSize').textContent = sizeMB + ' MB';
+        }
+
+        function saveFiles() {
+            localStorage.setItem('dogpen_files', JSON.stringify(files));
+        }
+
+        // Generate unique share code
+        function generateShareCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 12; i++) {
+                if (i === 4 || i === 8) code += '-';
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // Share file
+        function shareFile(fileId) {
+            currentShareFileId = fileId;
+            const file = files.find(f => f.id === fileId);
+            
+            if (!file) {
+                alert('File not found');
+                return;
+            }
+
+            // Generate or retrieve share code
+            let shareCode = sharedFiles[fileId] || generateShareCode();
+            
+            // Store shared file
+            sharedFiles[fileId] = shareCode;
+            localStorage.setItem('dogpen_shared_files', JSON.stringify(sharedFiles));
+
+            // Update modal
+            const codeElement = document.getElementById('shareCode');
+            if (codeElement) {
+                codeElement.textContent = shareCode;
+            }
+
+            // Show modal
+            const modal = document.getElementById('shareModal');
+            if (modal) {
+                modal.classList.add('show');
+            } else {
+                alert('Share Code: ' + shareCode);
+            }
+        }
+
+        // Copy share code
+        function copyShareCode() {
+            const codeElement = document.getElementById('shareCode');
+            if (!codeElement) {
+                alert('❌ Error: Share code not found');
+                return;
+            }
+            const code = codeElement.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('✅ Share code copied: ' + code);
+            }).catch(err => {
+                alert('Share code: ' + code);
+            });
+        }
+
+        // Close share modal
+        function closeShareModal() {
+            const modal = document.getElementById('shareModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+            currentShareFileId = null;
+        }
+
+        // Open access modal
+        function openAccessModal() {
+            const modal = document.getElementById('accessModal');
+            if (modal) {
+                modal.classList.add('show');
+            } else {
+                const code = prompt('Enter share code:');
+                if (code) {
+                    document.getElementById('accessCode').value = code;
+                    accessSharedFile();
+                }
+            }
+        }
+
+        // Close access modal
+        function closeAccessModal() {
+            const modal = document.getElementById('accessModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+            const input = document.getElementById('accessCode');
+            if (input) {
+                input.value = '';
+            }
+        }
+
+        // Access shared file
+        function accessSharedFile() {
+            const input = document.getElementById('accessCode');
+            const code = (input ? input.value : '').trim().toUpperCase();
+            
+            if (!code) {
+                alert('❌ Please enter a share code');
+                return;
+            }
+
+            // Find file by share code
+            let foundFileId = null;
+            for (const [fileId, shareCode] of Object.entries(sharedFiles)) {
+                if (shareCode === code) {
+                    foundFileId = parseInt(fileId);
+                    break;
+                }
+            }
+
+            if (!foundFileId) {
+                alert('❌ Invalid share code. Please check and try again.');
+                return;
+            }
+
+            const file = files.find(f => f.id === foundFileId);
+            if (!file) {
+                alert('❌ Shared file not found.');
+                return;
+            }
+
+            alert(`✅ Access granted!\n\nFile: ${file.name}\nShared by: Dogpen File`);
+            downloadFile(foundFileId);
+            closeAccessModal();
+        }
+
+        // Add access button to toolbar
+        function addAccessButton() {
+            const toolbar = document.querySelector('.toolbar');
+            if (toolbar && !document.getElementById('accessFileBtn')) {
+                const btn = document.createElement('button');
+                btn.id = 'accessFileBtn';
+                btn.className = 'btn btn-secondary';
+                btn.textContent = '🔓 Access Shared File';
+                btn.onclick = openAccessModal;
+                toolbar.appendChild(btn);
+            }
+        }
+
+        // Initialize
+        if (darkMode) document.body.classList.add('dark-mode');
+        renderFiles();
+        addAccessButton();
+    </script>
+</body>
+</html>
