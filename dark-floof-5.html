@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Floof V - The Neon Silence</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --dark: #0a0e27;
+            --pulse-purple: #8b00ff;
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff1493;
+            --neon-green: #39ff14;
+            --text-primary: #e0e0e0;
+            --text-secondary: #909090;
+            --bg-secondary: #1a1f3a;
+            --danger: #ff4444;
+            --success: #44ff44;
+        }
+
+        body {
+            background: var(--dark);
+            color: var(--text-primary);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 250px;
+            grid-template-rows: 1fr 150px;
+            gap: 4px;
+            padding: 8px;
+            background: var(--dark);
+        }
+
+        #map-view {
+            grid-column: 1;
+            grid-row: 1;
+            background: var(--bg-secondary);
+            border: 2px solid var(--pulse-purple);
+            border-radius: 4px;
+            padding: 12px;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(139, 0, 255, 0.3);
+        }
+
+        #status-panel {
+            grid-column: 2;
+            grid-row: 1 / 3;
+            background: var(--bg-secondary);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 4px;
+            padding: 12px;
+            overflow-y: auto;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+
+        #command-input {
+            grid-column: 1;
+            grid-row: 2;
+            background: var(--bg-secondary);
+            border: 2px solid var(--neon-pink);
+            border-radius: 4px;
+            padding: 8px;
+            box-shadow: 0 0 20px rgba(255, 20, 147, 0.2);
+        }
+
+        #command-input input {
+            width: 100%;
+            height: 32px;
+            background: var(--dark);
+            color: var(--neon-cyan);
+            border: 1px solid var(--pulse-purple);
+            padding: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            border-radius: 2px;
+        }
+
+        #command-input input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        #command-input input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+        }
+
+        /* Status Panel Sections */
+        .status-section {
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--pulse-purple);
+        }
+
+        .status-section:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: var(--neon-cyan);
+            font-weight: bold;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+
+        .stat-name {
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            color: var(--neon-green);
+            font-weight: bold;
+        }
+
+        .stat-value.critical {
+            color: var(--danger);
+        }
+
+        .stat-value.positive {
+            color: var(--neon-green);
+        }
+
+        /* Map Display */
+        .location-text {
+            color: var(--neon-pink);
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .location-desc {
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .exits {
+            color: var(--neon-cyan);
+            font-size: 12px;
+            margin: 6px 0;
+        }
+
+        .npcs {
+            color: var(--neon-green);
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        .items {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin: 4px 0;
+        }
+
+        /* Combat Display */
+        #combat-log {
+            background: var(--dark);
+            border: 1px solid var(--neon-pink);
+            padding: 8px;
+            margin-bottom: 8px;
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 11px;
+            border-radius: 2px;
+        }
+
+        .combat-entry {
+            margin-bottom: 4px;
+        }
+
+        .combat-damage {
+            color: var(--danger);
+        }
+
+        .combat-heal {
+            color: var(--neon-green);
+        }
+
+        .combat-miss {
+            color: var(--text-secondary);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--pulse-purple);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-cyan);
+        }
+
+        /* Terminal effect */
+        #map-view::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, 0.15),
+                    rgba(0, 0, 0, 0.15) 1px,
+                    transparent 1px,
+                    transparent 2px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* Utility classes */
+        .color-danger { color: var(--danger); }
+        .color-success { color: var(--neon-green); }
+        .color-cyan { color: var(--neon-cyan); }
+        .color-pink { color: var(--neon-pink); }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="map-view">
+            <div id="location-display"></div>
+            <div id="combat-log"></div>
+        </div>
+        <div id="status-panel">
+            <div id="stats-display"></div>
+        </div>
+        <div id="command-input">
+            <input type="text" id="command-field" placeholder="> enter command or type HELP">
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // DARK FLOOF V: THE NEON SILENCE
+        // Game State & Engine
+        // ============================================
+
+        const GameState = {
+            currentLocation: 'entrance',
+            hp: 100,
+            maxHp: 100,
+            mask: 'none',
+            dread: 0,
+            fracture: 0,
+            echo: 0,
+            scraps: 0,
+            ionCredits: 50,
+            gun: 'revolver',
+            ammo: 12,
+            faction: 'unaligned',
+            factionRep: {},
+            inventory: [{ name: 'lighter', quantity: 1 }],
+            isInCombat: false,
+            currentEnemy: null,
+            combatLog: [],
+            turnCount: 0,
+            bossDefeated: false,
+            hallucinating: false,
+            lastSaveSlot: 0
+        };
+
+        // ============================================
+        // WORLD MAP GENERATOR
+        // ============================================
+
+        const RoomTemplates = {
+            descriptions: [
+                'A dimly lit corridor with flickering neon signs.',
+                'An abandoned office covered in dust and debris.',
+                'A narrow hallway with water dripping from the ceiling.',
+                'A storage room filled with broken equipment.',
+                'A kitchen area with rusted appliances.',
+                'A bathroom with shattered mirrors.',
+                'A stairwell leading both up and down into darkness.',
+                'A small room with graffiti covering every wall.',
+                'A lounge area with overturned furniture.',
+                'A technical room with exposed wiring.',
+                'A server room with humming machinery.',
+                'A ventilation shaft with metallic grating.',
+                'A corridor with peeling wallpaper and water stains.',
+                'A room filled with old filing cabinets.',
+                'A hallway lined with boarded-up doors.',
+                'A basement passage with concrete walls.',
+                'A room with broken neon signs piled in corners.',
+                'A storage closet barely large enough to move in.',
+                'A hallway with echoing footsteps behind you.',
+                'A room where the air seems to shimmer.',
+                'A narrow passage between two walls.',
+                'A room with a single working light bulb.',
+                'A hallway with markings on the floor.',
+                'A room that smells of rust and decay.',
+                'A passage with graffiti warnings.',
+                'A room filled with shelves of unknown items.',
+                'A hallway where shadows move independently.',
+                'A room with a low ceiling and tight walls.',
+                'A passage that seems longer than it should be.',
+                'A room with cold spots and warm spots.',
+                'A hallway with doors that won\'t open.',
+                'A room with mirrors reflecting nothing.',
+                'A passage underground with stone walls.',
+                'A room with machinery that still hums.',
+                'A hallway with blood-red paint.',
+                'A room filled with chairs arranged in circles.',
+                'A passage that slopes downward slowly.',
+                'A room with curtains hanging from the walls.',
+                'A hallway with numbers etched into walls.',
+                'A room where your breath becomes visible.',
+                'A passage with tiles missing from floor.',
+                'A room with a locked metal door.',
+                'A hallway that branches unexpectedly.',
+                'A room with abandoned experiments.',
+                'A passage with warning symbols.',
+                'A room with a skylight showing nothing.',
+                'A hallway with cables running overhead.',
+                'A room that feels older than the building.',
+                'A passage with acoustic panels on walls.',
+                'A room with a sense of being watched.'
+            ],
+            items: [
+                'corroded-coin', 'rusted-key', 'torn-journal', 'broken-radio', 'dead-battery',
+                'vinyl-record', 'broken-watch', 'faded-photograph', 'crumpled-note', 'old-lighter',
+                'bent-nail', 'glass-shard', 'copper-wire', 'chain-link', 'safety-pin',
+                'rubber-band', 'candle-stub', 'metal-coin', 'leather-strap', 'cloth-scrap',
+                'bottle-cap', 'spring', 'bolt', 'washer', 'rivet',
+                'neon-tag', 'circuit-board', 'transistor', 'diode', 'capacitor',
+                'crystal-glass', 'mirror-shard', 'plastic-card', 'ticket-stub', 'postcard'
+            ],
+            npcs: [
+                'A silent figure in the corner',
+                'Something breathing in the dark',
+                'A voice with no owner',
+                'Eyes reflecting no light',
+                'A shape that\'s almost human',
+                'A presence you can feel',
+                'A figure made of static',
+                'Something that was never alive',
+                'A memory that walks'
+            ]
+        };
+
+        function generateConnectedRooms(count) {
+            const rooms = {};
+            const roomIds = [];
+
+            // Create entrance first
+            rooms['entrance'] = {
+                name: 'The Pulse - Entrance',
+                desc: 'You stand at the rusted front doors of The Pulse, an abandoned nightclub. Neon signs flicker erratically—purple, cyan, pink. The bass still throbs through the walls somehow, like the building remembers the music. Cold air leaks from gaps in the frame.',
+                exits: {},
+                npcs: ['A figure in a gas mask sits by the door'],
+                items: [{ name: 'neon-tag', quantity: 1 }],
+                zone: 'entrance',
+                visited: false
+            };
+            roomIds.push('entrance');
+
+            // Generate remaining random rooms
+            for (let i = 0; i < count - 1; i++) {
+                const roomId = `room_${i}`;
+                roomIds.push(roomId);
+
+                const desc = RoomTemplates.descriptions[Math.floor(Math.random() * RoomTemplates.descriptions.length)];
+                const hasNpc = Math.random() > 0.7;
+                const hasItems = Math.random() > 0.5;
+                const isDanger = Math.random() > 0.8;
+
+                const items = [];
+                if (hasItems) {
+                    const itemName = RoomTemplates.items[Math.floor(Math.random() * RoomTemplates.items.length)];
+                    items.push({ name: itemName, quantity: Math.random() > 0.7 ? Math.floor(Math.random() * 3) + 1 : 1 });
+                }
+
+                rooms[roomId] = {
+                    name: `The Pulse - Room ${i + 1}`,
+                    desc: desc,
+                    exits: {},
+                    npcs: hasNpc ? [RoomTemplates.npcs[Math.floor(Math.random() * RoomTemplates.npcs.length)]] : [],
+                    items: items,
+                    zone: `zone_${Math.floor(i / 50)}`,
+                    danger: isDanger,
+                    visited: false,
+                    miniBoss: Math.random() > 0.95
+                };
+            }
+
+            // Build a guaranteed connected graph using chain + shortcuts
+            // First: create a linear chain
+            for (let i = 0; i < roomIds.length - 1; i++) {
+                const dir = i % 2 === 0 ? 'east' : 'south';
+                rooms[roomIds[i]].exits[dir] = roomIds[i + 1];
+                rooms[roomIds[i + 1]].exits[dir === 'east' ? 'west' : 'north'] = roomIds[i];
+            }
+
+            // Then: add random shortcuts for variety
+            roomIds.forEach((roomId, index) => {
+                if (index === 0) return; // Skip entrance
+                
+                const directions = ['north', 'south', 'east', 'west', 'up', 'down'];
+                directions.forEach(dir => {
+                    if (!rooms[roomId].exits[dir] && Math.random() > 0.7) {
+                        const targetIdx = Math.max(0, Math.min(roomIds.length - 1, index + Math.floor((Math.random() - 0.5) * 30)));
+                        rooms[roomId].exits[dir] = roomIds[targetIdx];
+                    }
+                });
+            });
+
+            // Add escape routes back to entrance
+            roomIds.forEach((roomId, index) => {
+                if (index > 0 && Math.random() > 0.92) {
+                    const escapeDir = ['north', 'south', 'east', 'west'][Math.floor(Math.random() * 4)];
+                    rooms[roomId].exits[escapeDir] = 'entrance';
+                }
+            });
+
+            // Create boss room - pick a deep room far from entrance
+            const bossRoomId = roomIds[Math.floor(Math.random() * 0.7 * roomIds.length) + Math.floor(roomIds.length * 0.3)];
+            rooms[bossRoomId].isBoss = true;
+            rooms[bossRoomId].name = 'The Basement - The Rift';
+            rooms[bossRoomId].desc = 'You\'ve reached a strange chamber. The walls are stone, older than the building above. In the center of the room, reality seems to... shimmer. The air tastes like copper. You sense something old and aware watching you from the distortion.';
+            rooms[bossRoomId].npcs = ['THE RIFT - Final Boss'];
+            rooms[bossRoomId].items = [];
+            rooms[bossRoomId].danger = true;
+
+            return rooms;
+        }
+
+        const Locations = generateConnectedRooms(250);
+
+        // ============================================
+        // ENEMIES
+        // ============================================
+
+        const Enemies = {
+            wraith: {
+                name: 'Wraith',
+                hp: 30,
+                maxHp: 30,
+                damage: 8,
+                loot: { scraps: 15, ionCredits: 5, items: ['corrupted-shard'] },
+                specialAttacks: ['phase_shift', 'drain']
+            },
+            scavenger: {
+                name: 'Scavenger',
+                hp: 40,
+                maxHp: 40,
+                damage: 10,
+                loot: { scraps: 25, ionCredits: 10, items: ['ammo-pack', 'scrap-heap'] },
+                specialAttacks: ['pounce', 'steal']
+            },
+            silence_guardian: {
+                name: 'Silence Guardian',
+                hp: 60,
+                maxHp: 60,
+                damage: 15,
+                loot: { scraps: 50, ionCredits: 30, items: ['guardian-core', 'energy-cell'] },
+                specialAttacks: ['stun_wave', 'reinforce']
+            },
+            the_rift: {
+                name: 'THE RIFT',
+                hp: 200,
+                maxHp: 200,
+                damage: 25,
+                loot: { scraps: 200, ionCredits: 100, items: ['rift-shard', 'reality-fragment'] },
+                specialAttacks: ['reality_tear', 'void_pulse', 'dimension_shift'],
+                phases: 3,
+                currentPhase: 1
+            }
+        };
+
+        // ============================================
+        // CORE GAME FUNCTIONS
+        // ============================================
+
+        function initGame() {
+            updateDisplay();
+            addCombatLog('> Dark Floof V: The Neon Silence loaded.');
+            addCombatLog('> 250 rooms. 1 boss. Endless dread.');
+            addCombatLog('> Type HELP for commands.');
+            document.getElementById('command-field').focus();
+
+            // Update dread effects periodically
+            setInterval(updateDreadEffects, 3000);
+        }
+
+        function updateDisplay() {
+            updateLocationDisplay();
+            updateStatusPanel();
+        }
+
+        function updateLocationDisplay() {
+            const loc = Locations[GameState.currentLocation];
+            let html = `<div class="location-text">${loc.name}</div>`;
+            html += `<div class="location-desc">${loc.desc}</div>`;
+            
+            if (Object.keys(loc.exits).length > 0) {
+                html += `<div class="exits">Exits: ${Object.keys(loc.exits).join(', ').toUpperCase()}</div>`;
+            }
+            
+            if (loc.npcs.length > 0) {
+                html += `<div class="npcs">NPCs: ${loc.npcs.join(' | ')}</div>`;
+            }
+            
+            if (loc.items.length > 0) {
+                const itemNames = loc.items.map(item => `${item.name}(${item.quantity})`).join(', ');
+                html += `<div class="items">Items: ${itemNames}</div>`;
+            }
+
+            document.getElementById('location-display').innerHTML = html;
+        }
+
+        function updateStatusPanel() {
+            let html = '<div class="status-section">';
+            html += '<div class="status-label">Status</div>';
+            
+            const hpPercent = Math.floor((GameState.hp / GameState.maxHp) * 100);
+            const hpColor = GameState.hp > 50 ? 'positive' : GameState.hp > 25 ? '' : 'critical';
+            
+            html += `<div class="stat-line"><span class="stat-name">HP</span><span class="stat-value ${hpColor}">${GameState.hp}/${GameState.maxHp}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Dread</span><span class="stat-value">${GameState.dread}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Fracture</span><span class="stat-value">${GameState.fracture}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Echo</span><span class="stat-value">${GameState.echo}</span></div>`;
+            
+            html += '</div><div class="status-section">';
+            html += '<div class="status-label">Resources</div>';
+            html += `<div class="stat-line"><span class="stat-name">Scraps</span><span class="stat-value">${GameState.scraps}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Ion Credits</span><span class="stat-value">${GameState.ionCredits}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Ammo</span><span class="stat-value">${GameState.ammo}</span></div>`;
+            
+            html += '</div><div class="status-section">';
+            html += '<div class="status-label">Gear</div>';
+            html += `<div class="stat-line"><span class="stat-name">Gun</span><span class="stat-value">${GameState.gun}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Mask</span><span class="stat-value">${GameState.mask}</span></div>`;
+            html += `<div class="stat-line"><span class="stat-name">Faction</span><span class="stat-value">${GameState.faction}</span></div>`;
+            
+            html += '</div><div class="status-section">';
+            html += '<div class="status-label">Inventory</div>';
+            html += `<div class="stat-line"><span class="stat-name">Items</span><span class="stat-value">${GameState.inventory.length}</span></div>`;
+            if (GameState.inventory.length > 0) {
+                const invList = GameState.inventory.map(item => `${item.name}(${item.quantity})`).join(', ');
+                html += `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">${invList}</div>`;
+            }
+            
+            html += '</div>';
+            
+            document.getElementById('stats-display').innerHTML = html;
+        }
+
+        function addCombatLog(message) {
+            GameState.combatLog.push(message);
+            if (GameState.combatLog.length > 15) GameState.combatLog.shift();
+            
+            const logHtml = GameState.combatLog.map(msg => {
+                let className = 'combat-entry';
+                if (msg.includes('damage')) className += ' combat-damage';
+                if (msg.includes('heal')) className += ' combat-heal';
+                if (msg.includes('miss')) className += ' combat-miss';
+                return `<div class="${className}">${msg}</div>`;
+            }).join('');
+            
+            document.getElementById('combat-log').innerHTML = logHtml;
+            document.getElementById('combat-log').scrollTop = document.getElementById('combat-log').scrollHeight;
+        }
+
+        // ============================================
+        // COMBAT SYSTEM
+        // ============================================
+
+        function startCombat(enemyKey) {
+            if (!Enemies[enemyKey]) return;
+
+            // Prevent re-fighting the boss
+            if (enemyKey === 'the_rift' && GameState.bossDefeated) {
+                addCombatLog('> The Rift has already been defeated. Only echoes remain.');
+                return;
+            }
+            
+            GameState.isInCombat = true;
+            const enemy = Enemies[enemyKey];
+            GameState.currentEnemy = { 
+                ...enemy,
+                hp: enemy.hp,
+                isBoss: enemyKey === 'the_rift',
+                currentPhase: 1
+            };
+            GameState.turnCount = 0;
+            
+            addCombatLog(`> Encountered ${GameState.currentEnemy.name}!`);
+            if (GameState.currentEnemy.isBoss) {
+                addCombatLog(`> PHASE 1 - The Rift manifests!`);
+            }
+            addCombatLog(`> HP: ${GameState.currentEnemy.hp} | Type ATTACK, MELEE, AIM, RELOAD, DODGE, BLOCK, THROW or RUN`);
+        }
+
+        function updateBossPhase() {
+            const enemy = GameState.currentEnemy;
+            if (!enemy || !enemy.isBoss) return;
+
+            const hpPercent = (enemy.hp / enemy.maxHp) * 100;
+            let newPhase = 1;
+
+            if (hpPercent <= 30) {
+                newPhase = 3;
+            } else if (hpPercent <= 65) {
+                newPhase = 2;
+            }
+
+            if (newPhase !== enemy.currentPhase) {
+                enemy.currentPhase = newPhase;
+                const phaseMessages = [
+                    '',
+                    '> PHASE 1 - The Rift takes form.',
+                    '> PHASE 2 - Reality tears wider. The Rift grows stronger!',
+                    '> PHASE 3 - THE RIFT CONSUMES ALL. FINAL STAND!'
+                ];
+                addCombatLog(phaseMessages[newPhase]);
+                addCombatLog('> New attack patterns unlocked!');
+            }
+        }
+
+        function playerAttack() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            if (GameState.gun === 'none' || GameState.ammo === 0) {
+                addCombatLog('> No ammo! Use MELEE instead.');
+                return;
+            }
+
+            const damage = Math.floor(Math.random() * 20) + 10;
+            const hit = Math.random() > 0.2;
+
+            if (hit) {
+                GameState.currentEnemy.hp -= damage;
+                addCombatLog(`> Shot ${GameState.currentEnemy.name} for ${damage} damage.`);
+                GameState.ammo--;
+                
+                if (GameState.currentEnemy.hp <= 0) {
+                    endCombat(true);
+                    return;
+                }
+            } else {
+                addCombatLog('> Shot missed!');
+            }
+
+            enemyTurn();
+        }
+
+        function playerAim() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            if (GameState.ammo === 0) {
+                addCombatLog('> No ammo! Reload first.');
+                return;
+            }
+
+            const damage = Math.floor(Math.random() * 25) + 20;
+            const hit = Math.random() > 0.05; // Aimed shot is harder to miss
+
+            if (hit) {
+                GameState.currentEnemy.hp -= damage;
+                addCombatLog(`> Carefully aimed shot hit ${GameState.currentEnemy.name} for ${damage} damage!`);
+                GameState.ammo--;
+                
+                if (GameState.currentEnemy.hp <= 0) {
+                    endCombat(true);
+                    return;
+                }
+            } else {
+                addCombatLog('> Aimed shot missed!');
+            }
+
+            enemyTurn();
+        }
+
+        function playerReload() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat. Use RELOAD to refill.');
+                return;
+            }
+
+            if (GameState.scraps < 10) {
+                addCombatLog('> Need 10 scraps to reload. Skipping turn.');
+                enemyTurn();
+                return;
+            }
+
+            GameState.scraps -= 10;
+            GameState.ammo = 12;
+            addCombatLog('> Reloaded! 12 rounds ready.');
+            enemyTurn();
+        }
+
+        function playerDodge() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            const success = Math.random() > 0.4;
+            if (success) {
+                addCombatLog('> You dodge the incoming attack!');
+                enemyTurn();
+            } else {
+                addCombatLog('> Failed to dodge! Enemy attacks!');
+                enemyTurn();
+            }
+        }
+
+        function playerBlock() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            addCombatLog('> You raise your guard, preparing to block!');
+            GameState.fracture += 1;
+            
+            // Reduced damage from incoming enemy attack
+            const fullDamage = Math.floor(Math.random() * 10) + GameState.currentEnemy.damage;
+            const blockedDamage = Math.floor(fullDamage * 0.4); // Block reduces damage to 40%
+            
+            GameState.hp -= blockedDamage;
+            addCombatLog(`> Blocked attack! Took ${blockedDamage} reduced damage (${fullDamage} blocked).`);
+            
+            if (GameState.hp <= 0) {
+                endCombat(false);
+                return;
+            }
+
+            updateStatusPanel();
+        }
+
+        function playerThrow() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            if (GameState.inventory.length === 0) {
+                addCombatLog('> No items to throw.');
+                return;
+            }
+
+            const item = GameState.inventory[Math.floor(Math.random() * GameState.inventory.length)];
+            if (item.quantity > 1) {
+                item.quantity--;
+            } else {
+                GameState.inventory.splice(GameState.inventory.indexOf(item), 1);
+            }
+
+            const damage = Math.floor(Math.random() * 15) + 5;
+            const hit = Math.random() > 0.3;
+
+            if (hit) {
+                GameState.currentEnemy.hp -= damage;
+                addCombatLog(`> Threw ${item.name} at ${GameState.currentEnemy.name} for ${damage} damage!`);
+                
+                if (GameState.currentEnemy.hp <= 0) {
+                    endCombat(true);
+                    return;
+                }
+            } else {
+                addCombatLog(`> The ${item.name} missed!`);
+            }
+
+            enemyTurn();
+        }
+
+        function playerMelee() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            const damage = Math.floor(Math.random() * 15) + 5;
+            const hit = Math.random() > 0.15;
+
+            if (hit) {
+                GameState.currentEnemy.hp -= damage;
+                addCombatLog(`> Slashed ${GameState.currentEnemy.name} for ${damage} damage.`);
+                
+                if (GameState.currentEnemy.hp <= 0) {
+                    endCombat(true);
+                    return;
+                }
+            } else {
+                addCombatLog('> Melee attack missed!');
+            }
+
+            enemyTurn();
+        }
+
+        function enemyTurn() {
+            const enemy = GameState.currentEnemy;
+            
+            // Check for phase change
+            updateBossPhase();
+            
+            // Scale special attack frequency by phase
+            const specialChance = enemy.isBoss ? (0.5 + (enemy.currentPhase * 0.15)) : 0.7;
+            
+            // Chance for special attack if available
+            if (enemy.specialAttacks && Math.random() > specialChance) {
+                const attack = enemy.specialAttacks[Math.floor(Math.random() * enemy.specialAttacks.length)];
+                handleSpecialAttack(attack, enemy);
+                return;
+            }
+
+            // Scale damage by phase (1.0x, 1.3x, 1.6x)
+            const phaseMultiplier = 1 + ((enemy.currentPhase - 1) * 0.3);
+            const baseDamage = Math.floor(Math.random() * 10) + enemy.damage;
+            const damage = Math.floor(baseDamage * phaseMultiplier);
+            const hit = Math.random() > 0.25;
+
+            if (hit) {
+                GameState.hp -= damage;
+                addCombatLog(`> ${enemy.name} dealt ${damage} damage!`);
+                
+                if (GameState.hp <= 0) {
+                    endCombat(false);
+                }
+            } else {
+                addCombatLog(`> ${enemy.name}'s attack missed!`);
+            }
+
+            updateStatusPanel();
+        }
+
+        function handleSpecialAttack(attackType, enemy) {
+            const specialDamage = Math.floor(Math.random() * 15) + 10;
+            
+            switch(attackType) {
+                case 'drain':
+                    GameState.hp -= specialDamage;
+                    GameState.dread += 2;
+                    addCombatLog(`> ${enemy.name} uses drain! Lost ${specialDamage} HP and gained dread.`);
+                    break;
+                case 'phase_shift':
+                    addCombatLog(`> ${enemy.name} phases out of reality!`);
+                    addCombatLog('> Your attack passes through empty space.');
+                    break;
+                case 'pounce':
+                    GameState.hp -= specialDamage + 5;
+                    addCombatLog(`> ${enemy.name} pounces! ${specialDamage + 5} damage!`);
+                    break;
+                case 'steal':
+                    if (GameState.inventory.length > 0) {
+                        const item = GameState.inventory[Math.floor(Math.random() * GameState.inventory.length)];
+                        addCombatLog(`> ${enemy.name} steals your ${item.name}!`);
+                        item.quantity--;
+                        if (item.quantity <= 0) {
+                            GameState.inventory.splice(GameState.inventory.indexOf(item), 1);
+                        }
+                    }
+                    break;
+                case 'stun_wave':
+                    GameState.hp -= specialDamage;
+                    addCombatLog(`> ${enemy.name} releases a stun wave! ${specialDamage} damage!`);
+                    break;
+                case 'reality_tear':
+                    GameState.hp -= specialDamage;
+                    GameState.fracture += 3;
+                    addCombatLog(`> THE RIFT tears reality! ${specialDamage} damage! Fracture increased!`);
+                    break;
+                case 'void_pulse':
+                    GameState.hp -= specialDamage;
+                    GameState.dread = Math.min(100, GameState.dread + 5);
+                    addCombatLog(`> Void pulse spreads dread! ${specialDamage} damage!`);
+                    break;
+            }
+
+            if (GameState.hp <= 0) {
+                endCombat(false);
+            }
+            
+            updateStatusPanel();
+        }
+
+        function endCombat(playerWon) {
+            GameState.isInCombat = false;
+
+            if (playerWon) {
+                addCombatLog(`> ${GameState.currentEnemy.name} defeated!`);
+                const loot = GameState.currentEnemy.loot;
+                GameState.scraps += loot.scraps;
+                GameState.ionCredits += loot.ionCredits;
+                addCombatLog(`> Gained ${loot.scraps} scraps, ${loot.ionCredits} ion credits.`);
+                
+                // Add loot items
+                if (loot.items) {
+                    loot.items.forEach(itemName => {
+                        const existingItem = GameState.inventory.find(i => i.name === itemName);
+                        if (existingItem) {
+                            existingItem.quantity++;
+                        } else {
+                            GameState.inventory.push({ name: itemName, quantity: 1 });
+                        }
+                        addCombatLog(`> Found: ${itemName}`);
+                    });
+                }
+                
+                GameState.dread = Math.max(0, GameState.dread - 5);
+
+                // Auto-save after combat victory
+                saveGame(0);
+
+                // Check if boss was defeated
+                if (GameState.currentEnemy.isBoss) {
+                    GameState.bossDefeated = true;
+                    addCombatLog('> THE RIFT COLLAPSES.');
+                    addCombatLog('> GAME WON!');
+                    GameState.isInCombat = false;
+                    return;
+                }
+            } else {
+                addCombatLog('> You have fallen.');
+                GameState.hp = GameState.maxHp;
+                GameState.currentLocation = 'entrance';
+                GameState.dread = Math.min(100, GameState.dread + 10);
+                addCombatLog('> You wake at the entrance...');
+                
+                // Auto-save after death
+                saveGame(0);
+            }
+
+            GameState.currentEnemy = null;
+            updateDisplay();
+        }
+
+        function runFromCombat() {
+            if (!GameState.isInCombat) {
+                addCombatLog('> Not in combat.');
+                return;
+            }
+
+            const success = Math.random() > 0.4;
+            
+            if (success) {
+                addCombatLog('> You flee from combat!');
+                GameState.isInCombat = false;
+                GameState.currentEnemy = null;
+                GameState.dread += 3;
+            } else {
+                addCombatLog('> Failed to escape!');
+                enemyTurn();
+            }
+
+            updateDisplay();
+        }
+
+        // ============================================
+        // SAVE / LOAD SYSTEM
+        // ============================================
+
+        function saveGame(slot = 1) {
+            const saveData = {
+                timestamp: new Date().toLocaleString(),
+                slot: slot,
+                gameState: { ...GameState },
+                locations: Locations
+            };
+            localStorage.setItem(`darkfloof5_save_${slot}`, JSON.stringify(saveData));
+            addCombatLog(`> Game saved to slot ${slot}.`);
+        }
+
+        function loadGame(slot = 1) {
+            const saveData = localStorage.getItem(`darkfloof5_save_${slot}`);
+            if (!saveData) {
+                addCombatLog(`> No save file in slot ${slot}.`);
+                return;
+            }
+
+            const data = JSON.parse(saveData);
+            Object.assign(GameState, data.gameState);
+            Object.assign(Locations, data.locations);
+            addCombatLog(`> Game loaded from slot ${slot}. Welcome back!`);
+            updateDisplay();
+        }
+
+        function deleteSave(slot = 1) {
+            localStorage.removeItem(`darkfloof5_save_${slot}`);
+            addCombatLog(`> Save file ${slot} deleted.`);
+        }
+
+        function listSaves() {
+            addCombatLog('> Save files:');
+            for (let i = 1; i <= 3; i++) {
+                const saveData = localStorage.getItem(`darkfloof5_save_${i}`);
+                if (saveData) {
+                    const data = JSON.parse(saveData);
+                    const hp = data.gameState.hp !== undefined ? data.gameState.hp : data.gameState.hp;
+                    const maxHp = data.gameState.maxHp || data.gameState.max_hp || 100;
+                    const dread = data.gameState.dread || 0;
+                    addCombatLog(`  Slot ${i}: ${data.timestamp} - HP: ${hp}/${maxHp} Dread: ${dread}`);
+                } else {
+                    addCombatLog(`  Slot ${i}: empty`);
+                }
+            }
+        }
+
+        // ============================================
+        // DREAD MECHANICS & HALLUCINATIONS
+        // ============================================
+
+        function updateDreadEffects() {
+            if (GameState.dread < 30) {
+                GameState.hallucinating = false;
+                return;
+            }
+
+            if (GameState.dread >= 30 && GameState.dread < 60) {
+                // Minor hallucinations
+                if (Math.random() > 0.85) {
+                    const effects = [
+                        '> You hear whispers in the darkness...',
+                        '> A shadow moves in the corner of your eye.',
+                        '> The walls seem to breathe.',
+                        '> Something just called your name.'
+                    ];
+                    addCombatLog(effects[Math.floor(Math.random() * effects.length)]);
+                }
+            } else if (GameState.dread >= 60) {
+                // Severe hallucinations
+                GameState.hallucinating = true;
+                if (Math.random() > 0.7) {
+                    const effects = [
+                        '> REALITY GLITCHING',
+                        '> WHAT IS THAT SOUND?',
+                        '> YOUR VISION FRAGMENTS',
+                        '> SOMETHING BEHIND YOU'
+                    ];
+                    addCombatLog(effects[Math.floor(Math.random() * effects.length)]);
+                }
+            }
+        }
+
+        function applyDreadToDisplay() {
+            if (GameState.dread < 60) return;
+            
+            const hallucType = Math.floor(Math.random() * 6);
+            
+            if (Math.random() > 0.85) {
+                switch(hallucType) {
+                    case 0:
+                        // Fake description
+                        const fakeDesc = [
+                            '> Everything is wrong. Nothing makes sense.',
+                            '> You\'ve been here before. Or will be. Or are now.',
+                            '> The floor isn\'t solid. It\'s breathing.',
+                            '> The walls are close. Closer than before.',
+                            '> Your reflection doesn\'t match your movements.'
+                        ];
+                        addCombatLog(fakeDesc[Math.floor(Math.random() * fakeDesc.length)]);
+                        break;
+                    case 1:
+                        // Fake exit
+                        const fakeExit = ['north', 'south', 'east', 'west', 'up', 'down'][Math.floor(Math.random() * 6)];
+                        addCombatLog(`> A doorway appears to the ${fakeExit}... but it fades.`);
+                        break;
+                    case 2:
+                        // Fake NPC
+                        const fakeNpc = [
+                            'Someone whispers your name',
+                            'A figure stands motionless in the corner',
+                            'You hear breathing that isn\'t yours',
+                            'A silhouette walks through the wall'
+                        ];
+                        addCombatLog(`> ${fakeNpc[Math.floor(Math.random() * fakeNpc.length)]}`);
+                        break;
+                    case 3:
+                        // Fake loot
+                        const fakeLoot = ['shimmering shard', 'impossible coin', 'whisper crystal', 'void fragment'];
+                        addCombatLog(`> You see a ${fakeLoot[Math.floor(Math.random() * fakeLoot.length)]} but it vanishes.`);
+                        break;
+                    case 4:
+                        // UI distortion
+                        const distort = ['SYSTEM ERROR', 'SIGNAL LOST', 'CANNOT COMPUTE', 'REALITY FRAGMENTED'];
+                        addCombatLog(`> [${distort[Math.floor(Math.random() * distort.length)]}]`);
+                        break;
+                    case 5:
+                        // Combat hallucination
+                        const combatHalluc = [
+                            '> Did something move in the darkness?',
+                            '> You feel eyes on you.',
+                            '> A scream echoes from nowhere.',
+                            '> Your wounds are worse than you thought.'
+                        ];
+                        addCombatLog(combatHalluc[Math.floor(Math.random() * combatHalluc.length)]);
+                        break;
+                }
+            }
+        }
+
+        // ============================================
+        // NAVIGATION
+        // ============================================
+
+        function move(direction) {
+            const loc = Locations[GameState.currentLocation];
+            
+            if (!loc.exits[direction]) {
+                addCombatLog(`> Can't go ${direction.toUpperCase()} from here.`);
+                return;
+            }
+
+            GameState.currentLocation = loc.exits[direction];
+            const newLoc = Locations[GameState.currentLocation];
+            
+            addCombatLog(`> Moved ${direction.toUpperCase()} to ${newLoc.name}`);
+            newLoc.visited = true;
+            
+            // Apply dread hallucinations
+            applyDreadToDisplay();
+            
+            // Check for random encounters
+            if (newLoc.danger && Math.random() > 0.6) {
+                const enemies = ['wraith', 'scavenger', 'silence_guardian'];
+                const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+                startCombat(randomEnemy);
+            } else if (newLoc.isBoss && !GameState.bossDefeated) {
+                addCombatLog('> THE RIFT EMERGES BEFORE YOU');
+                startCombat('the_rift');
+            } else if (newLoc.miniBoss && Math.random() > 0.8) {
+                addCombatLog('> A minor guardian approaches...');
+                startCombat('silence_guardian');
+            }
+            
+            GameState.dread = Math.min(100, GameState.dread + 1);
+            
+            // Auto-save on room transition
+            saveGame(0);
+            
+            updateDisplay();
+        }
+
+        // ============================================
+        // COMMAND PARSER
+        // ============================================
+
+        function parseCommand(input) {
+            const cmd = input.trim().toLowerCase();
+            const parts = cmd.split(' ');
+            const action = parts[0];
+            const arg = parts.slice(1).join(' ');
+
+            switch(action) {
+                case 'help':
+                    addCombatLog('--- EXPLORATION ---');
+                    addCombatLog('MOVE [N/S/E/W/UP/DOWN] - Navigate');
+                    addCombatLog('LOOK - Examine location');
+                    addCombatLog('PICKUP [item] - Take an item');
+                    addCombatLog('--- COMBAT (in battle) ---');
+                    addCombatLog('ATTACK - Shoot (costs ammo)');
+                    addCombatLog('AIM - Precise shot (more accurate)');
+                    addCombatLog('MELEE - Punch/stab');
+                    addCombatLog('RELOAD - Refill ammo (costs scraps)');
+                    addCombatLog('DODGE - Evade attack');
+                    addCombatLog('BLOCK - Reduce damage (costs turn)');
+                    addCombatLog('THROW [item] - Lob item at enemy');
+                    addCombatLog('RUN - Escape combat');
+                    addCombatLog('--- INVENTORY & STATS ---');
+                    addCombatLog('INVENTORY - Check items');
+                    addCombatLog('STATUS - View stats');
+                    addCombatLog('HEAL - Restore HP (25 scraps)');
+                    addCombatLog('--- SAVE / LOAD ---');
+                    addCombatLog('SAVE [1-3] - Save game to slot');
+                    addCombatLog('LOAD [1-3] - Load game from slot');
+                    addCombatLog('SAVES - List all saves');
+                    break;
+
+                case 'move':
+                case 'go':
+                    move(arg);
+                    break;
+
+                case 'n':
+                    move('north');
+                    break;
+                case 's':
+                    move('south');
+                    break;
+                case 'e':
+                    move('east');
+                    break;
+                case 'w':
+                    move('west');
+                    break;
+                case 'up':
+                    move('up');
+                    break;
+                case 'down':
+                    move('down');
+                    break;
+
+                case 'look':
+                    addCombatLog(`> ${Locations[GameState.currentLocation].desc}`);
+                    break;
+
+                case 'attack':
+                    playerAttack();
+                    break;
+
+                case 'aim':
+                    playerAim();
+                    break;
+
+                case 'melee':
+                    playerMelee();
+                    break;
+
+                case 'reload':
+                    playerReload();
+                    break;
+
+                case 'dodge':
+                    playerDodge();
+                    break;
+
+                case 'block':
+                    playerBlock();
+                    break;
+
+                case 'throw':
+                    playerThrow();
+                    break;
+
+                case 'run':
+                    runFromCombat();
+                    break;
+
+                case 'inventory':
+                case 'inv':
+                    if (GameState.inventory.length === 0) {
+                        addCombatLog('> Inventory: empty');
+                    } else {
+                        const invStr = GameState.inventory.map(item => `${item.name}(${item.quantity})`).join(', ');
+                        addCombatLog(`> Inventory (${GameState.inventory.length} stacks): ${invStr}`);
+                    }
+                    break;
+
+                case 'status':
+                    addCombatLog(`> HP: ${GameState.hp}/${GameState.maxHp} | Dread: ${GameState.dread} | Fracture: ${GameState.fracture}`);
+                    addCombatLog(`> Scraps: ${GameState.scraps} | Ion Credits: ${GameState.ionCredits} | Ammo: ${GameState.ammo}`);
+                    break;
+
+                case 'pickup':
+                    if (arg) {
+                        const loc = Locations[GameState.currentLocation];
+                        const itemToPickup = loc.items.find(item => item.name === arg);
+                        if (itemToPickup) {
+                            const existingItem = GameState.inventory.find(i => i.name === arg);
+                            if (existingItem) {
+                                existingItem.quantity += itemToPickup.quantity;
+                            } else {
+                                GameState.inventory.push({ ...itemToPickup });
+                            }
+                            loc.items.splice(loc.items.indexOf(itemToPickup), 1);
+                            addCombatLog(`> Picked up ${itemToPickup.quantity}x ${arg}`);
+                            updateDisplay();
+                        } else {
+                            addCombatLog(`> No ${arg} here.`);
+                        }
+                    } else {
+                        addCombatLog('> Pick up what?');
+                    }
+                    break;
+
+                case 'heal':
+                    if (GameState.scraps >= 25) {
+                        GameState.scraps -= 25;
+                        GameState.hp = GameState.maxHp;
+                        GameState.dread = Math.max(0, GameState.dread - 10);
+                        addCombatLog('> Used med-kit. Feeling restored.');
+                        saveGame(0); // Auto-save on heal
+                        updateDisplay();
+                    } else {
+                        addCombatLog('> Need 25 scraps to heal.');
+                    }
+                    break;
+
+                case 'talk':
+                    addCombatLog('> The NPCs here say nothing. They just stare.');
+                    break;
+
+                case 'clear':
+                    GameState.combatLog = [];
+                    updateDisplay();
+                    break;
+
+                case 'save':
+                    const saveSlot = parseInt(arg) || 1;
+                    saveGame(saveSlot);
+                    break;
+
+                case 'load':
+                    const loadSlot = parseInt(arg) || 1;
+                    loadGame(loadSlot);
+                    break;
+
+                case 'saves':
+                    listSaves();
+                    break;
+
+                case 'delete':
+                    const delSlot = parseInt(arg) || 1;
+                    deleteSave(delSlot);
+                    break;
+
+                default:
+                    addCombatLog(`> Unknown command: ${action}`);
+            }
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+
+        document.getElementById('command-field').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const input = e.target.value;
+                if (input.trim()) {
+                    addCombatLog(`> ${input}`);
+                    parseCommand(input);
+                }
+                e.target.value = '';
+            }
+        });
+
+        // ============================================
+        // INIT
+        // ============================================
+
+        window.addEventListener('load', initGame);
+    </script>
+</body>
+</html>
