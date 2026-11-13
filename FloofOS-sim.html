@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FloofOS 98 Simulator</title>
+<style>
+:root { color-scheme: light; --face:#c0c0c0; --hi:#ffffff; --sh:#808080; --dk:#000000; --navy:#000080; --teal:#008080; --desk:#008080; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; overflow:hidden; }
+body { background:var(--desk); font: 12px Tahoma, "MS Sans Serif", Arial, sans-serif; color:#000; user-select:none; }
+
+/* Bevels */
+.raised { border:2px solid; border-color:var(--hi) var(--dk) var(--dk) var(--hi); box-shadow: inset -1px -1px var(--sh), inset 1px 1px var(--face); }
+.sunken { border:2px solid; border-color:var(--sh) var(--hi) var(--hi) var(--sh); }
+
+/* Desktop */
+#desktop { position:absolute; inset:0 0 34px 0; padding:8px; }
+.icon { width:78px; text-align:center; color:#fff; margin-bottom:14px; cursor:default; }
+.icon .glyph { font-size:30px; line-height:36px; }
+.icon span { font-size:11px; text-shadow: 1px 1px #000; }
+#icons { display:flex; flex-direction:column; gap:4px; width:90px; }
+
+/* Windows */
+.win { position:absolute; background:var(--face); padding:3px; display:flex; flex-direction:column; min-width:0; }
+.titlebar { background:linear-gradient(90deg, var(--navy), #1084d0); color:#fff; font-weight:bold; padding:2px 3px; display:flex; justify-content:space-between; align-items:center; height:20px; cursor:move; }
+.titlebar .btns { display:flex; gap:2px; }
+.titlebar .btn { width:16px; height:14px; background:var(--face); color:#000; font-size:10px; line-height:10px; text-align:center; border:1px solid; border-color:var(--hi) var(--dk) var(--dk) var(--hi); cursor:default; }
+.body { padding:8px; overflow:auto; flex:1; min-height:0; }
+.win.focus .titlebar { background:linear-gradient(90deg, var(--navy), #1084d0); }
+.win:not(.focus) .titlebar { background:linear-gradient(90deg, #808080, #b5b5b5); }
+
+/* Controls */
+button { font: 12px Tahoma, "MS Sans Serif", Arial, sans-serif; background:var(--face); color:#000; padding:3px 10px; border:2px solid; border-color:var(--hi) var(--dk) var(--dk) var(--hi); box-shadow: inset -1px -1px var(--sh); cursor:default; min-width:64px; }
+button:active:not(:disabled) { border-color:var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: inset 1px 1px var(--sh); }
+button:disabled { color:var(--sh); text-shadow: 1px 1px var(--hi); }
+button.def { outline:1px solid #000; }
+
+.row { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0; border-top:1px solid var(--sh); }
+.row:first-child { border-top:none; }
+.row small { color:#444; display:block; }
+.muted { color:#444; }
+.tag { font-size:10px; padding:0 4px; background:var(--face); border:1px solid #000; }
+.tag.bad { background:#800000; color:#fff; border-color:#800000; }
+
+#log { background:#fff; font: 11px "Courier New", monospace; height:100%; min-height:150px; overflow-y:auto; padding:4px; }
+#log p { margin:0 0 2px; }
+
+/* Taskbar */
+#taskbar { position:absolute; left:0; right:0; bottom:0; height:34px; background:var(--face); display:flex; align-items:center; gap:4px; padding:2px 4px; border-top:1px solid var(--hi); }
+#startBtn { font-weight:bold; display:flex; align-items:center; gap:4px; }
+#startBtn .mark { width:16px; height:16px; background:linear-gradient(135deg,#ffb3e6,#b388ff); border:1px solid #000; display:inline-block; }
+#tasks { flex:1; display:flex; gap:4px; overflow-x:auto; }
+.task { font-size:11px; padding:2px 8px; border:2px solid; border-color:var(--sh) var(--hi) var(--hi) var(--sh); background:var(--face); min-width:120px; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:default; }
+.task.active { background: repeating-conic-gradient(#fff 0 25%, var(--face) 0 50%) 0 0/2px 2px; }
+#clock { border:1px solid; border-color:var(--sh) var(--hi) var(--hi) var(--sh); padding:2px 8px; font-size:11px; }
+
+/* Event popup */
+.dialog { position:absolute; left:50%; top:30%; transform:translateX(-50%); width:min(380px, 92vw); z-index:50; display:none; }
+.dialog.show { display:flex; }
+.dialog .body { display:flex; gap:10px; align-items:flex-start; }
+.dialog .warn { font-size:32px; line-height:32px; }
+.dialog .btns { display:flex; justify-content:flex-end; margin-top:10px; }
+
+/* End screen */
+#endDlg { top:35%; }
+
+/* Start menu */
+#startMenu { position:absolute; left:2px; bottom:36px; width:190px; background:var(--face); display:none; z-index:60; padding:3px; }
+#startMenu.show { display:block; }
+#startMenu .side { position:absolute; left:3px; top:3px; bottom:3px; width:24px; background:linear-gradient(0deg, var(--navy), #1084d0); color:#fff; font-weight:bold; writing-mode: vertical-rl; transform: rotate(180deg); text-align:center; padding:6px 0; font-size:14px; }
+#startMenu .items { margin-left:26px; }
+#startMenu .item { padding:6px 8px; cursor:default; }
+#startMenu .item:hover { background:var(--navy); color:#fff; }
+#startMenu hr { border:none; border-top:1px solid var(--sh); border-bottom:1px solid var(--hi); margin:3px 0; }
+</style>
+</head>
+<body>
+
+<div id="desktop">
+  <div id="icons">
+    <div class="icon" data-win="w-apps"><div class="glyph">📦</div><span>App Store</span></div>
+    <div class="icon" data-win="w-bugs"><div class="glyph">🐛</div><span>Bug Tracker</span></div>
+    <div class="icon" data-win="w-updates"><div class="glyph">⬇️</div><span>Updates</span></div>
+    <div class="icon" data-win="w-virus"><div class="glyph">🛡️</div><span>Antivirus</span></div>
+    <div class="icon" data-win="w-log"><div class="glyph">📄</div><span>System Log</span></div>
+    <div class="icon" data-win="w-status"><div class="glyph">🐶</div><span>Status</span></div>
+    <div class="icon" onclick="openFlappy()" ondblclick="openFlappy()"><div class="glyph">🐕</div><span>Flappy Husky</span></div>
+  </div>
+
+  <div class="win" id="w-status" style="left:150px; top:20px; width:300px;">
+    <div class="titlebar"><span>FloofOS 98 - Status</span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body">
+      <div class="row"><span>Day</span><strong><span id="day">1</span> / 7</strong></div>
+      <div class="row"><span>Score</span><strong id="score">0</strong></div>
+      <div class="row"><span>Stability</span></div>
+      <div class="sunken" style="height:16px; background:#fff; padding:1px;"><div id="stab" style="height:100%; width:80%; background:#000080;"></div></div>
+      <div style="margin-top:10px; text-align:right;"><button id="endDay" class="def">End Day</button></div>
+    </div>
+  </div>
+
+  <div class="win" id="w-apps" style="left:150px; top:250px; width:300px;">
+    <div class="titlebar"><span>App Store</span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body" id="apps"></div>
+  </div>
+
+  <div class="win" id="w-bugs" style="left:470px; top:20px; width:300px;">
+    <div class="titlebar"><span>Bug Tracker <span id="bugCount" class="tag"></span></span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body" id="bugs"></div>
+  </div>
+
+  <div class="win" id="w-updates" style="left:470px; top:250px; width:300px;">
+    <div class="titlebar"><span>Updates</span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body" id="updates"></div>
+  </div>
+
+  <div class="win" id="w-virus" style="left:790px; top:20px; width:280px;">
+    <div class="titlebar"><span>Antivirus</span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body" id="virus"></div>
+  </div>
+
+  <div class="win" id="w-log" style="left:790px; top:250px; width:360px; height:260px;">
+    <div class="titlebar"><span>System Log</span><div class="btns"><div class="btn">_</div><div class="btn">x</div></div></div>
+    <div class="body" style="padding:4px;"><div class="sunken" style="height:100%;"><div id="log"></div></div></div>
+  </div>
+</div>
+
+<div class="win dialog" id="eventBox">
+  <div class="titlebar"><span id="eventTitle">Event</span><div class="btns"><div class="btn">x</div></div></div>
+  <div class="body" style="flex-direction:column;">
+    <div style="display:flex; gap:10px;">
+      <div class="warn">⚠️</div>
+      <p id="eventText" style="margin:0;"></p>
+    </div>
+    <div class="btns"><button id="eventBtn" class="def">OK</button></div>
+  </div>
+</div>
+
+<div class="win dialog" id="endDlg">
+  <div class="titlebar"><span id="endTitle"></span><div class="btns"><div class="btn">x</div></div></div>
+  <div class="body" style="flex-direction:column;">
+    <p id="endText" style="margin:0 0 10px;"></p>
+    <div class="btns"><button id="restart" class="def">Reinstall FloofOS</button></div>
+  </div>
+</div>
+
+<div id="startMenu" class="raised">
+  <div class="side">FloofOS 98</div>
+  <div class="items">
+    <div class="item" data-win="w-status">Status</div>
+    <div class="item" data-win="w-apps">App Store</div>
+    <div class="item" data-win="w-bugs">Bug Tracker</div>
+    <div class="item" data-win="w-updates">Updates</div>
+    <div class="item" data-win="w-virus">Antivirus</div>
+    <div class="item" data-win="w-log">System Log</div>
+    <div class="item" onclick="openFlappy()">Flappy Husky</div>
+    <hr>
+    <div class="item" id="menuReset">Reinstall</div>
+  </div>
+</div>
+
+<div class="win" id="w-flappy" style="left:300px; top:90px; width:350px; display:none;">
+  <div class="titlebar"><span>Flappy Husky</span><div class="btns"><div class="btn" onclick="closeFlappy()">x</div></div></div>
+  <div class="body">
+    <div class="sunken"><canvas id="fbCanvas" width="320" height="240" style="width:100%; display:block; cursor:pointer;" onmousedown="flappyFlap()"></canvas></div>
+    <div class="row"><span>Space or click to flap. Score converts to FloofOS score.</span><button onclick="flappyReset()">Restart</button></div>
+  </div>
+</div>
+
+<div id="taskbar" class="raised">
+  <button id="startBtn"><span class="mark"></span>Start</button>
+  <div id="tasks"></div>
+  <div id="clock"></div>
+</div>
+
+<script>
+const APPS = [
+  { id:"calc", name:"Calculator", desc:"Mostly does addition", cost:0 },
+  { id:"notes", name:"Notepad++", desc:"Notepad, but more", cost:0 },
+  { id:"music", name:"Jukebox Pro", desc:"Plays one song, repeatedly", cost:1 },
+  { id:"paint", name:"Doodle Studio", desc:"Draws only dogs", cost:1 },
+  { id:"browser", name:"Floofscape Browser", desc:"Opens websites, sometimes", cost:2 },
+  { id:"mail", name:"Pigeon Mail", desc:"Sends mail by pigeon", cost:2 },
+  { id:"solitaire", name:"Solitaire", desc:"Every card is a fish", cost:1 },
+  { id:"defrag", name:"Defrag Deluxe", desc:"Makes it worse, faster", cost:2 },
+  { id:"screensaver", name:"Lydia's Screensaver", desc:"A husky, slowly, forever", cost:1 },
+  { id:"clippy", name:"Helpful Paperclip", desc:"Is it helping? Unclear", cost:2 }
+];
+const BUG_POOL = [
+  "Clock shows yesterday", "Taskbar sometimes orbits the screen", "Save button saves the wrong file",
+  "Windows open behind the wallpaper", "Mouse cursor is a small lizard", "Battery icon is a sad face",
+  "Keyboard types in reverse for 3 seconds at startup", "Desktop icons are slowly moving left"
+];
+const UPDATE_POOL = [
+  { name:"Security Patch 4.2", risk:0.2, good:"Stability +10", fn: s => s.stab += 10 },
+  { name:"Feature Pack: Dark Mode (already dark)", risk:0.3, good:"Score +20", fn: s => s.score += 20 },
+  { name:"Driver Update: Printer (printer not found)", risk:0.4, good:"Nothing happens", fn: s => {} },
+  { name:"Kernel 9.0 (Kernel 8.9 was nicer)", risk:0.7, good:"Stability +15, bugs +1", fn: s => { s.stab += 15; s.bugs.push(pick(BUG_POOL)); } },
+  { name:"Optimize Everything (unspecified)", risk:0.6, good:"Score +40", fn: s => s.score += 40 }
+];
+const VIRUSES = ["Bread.exe", "TotallyNotAVirus.dll", "CryptoPuppy.bat", "FREE_V-BUCKS.scr", "Mega_Floof_Worm", "Gerald_Hates_You.exe", "WALLPAPER_CRIMES.vbs", "Definitely_Not_Pigeon.zip", "sock_thief.msi"];
+
+const GAME_EVENTS = [
+  { day:1, title:"Update accidentally removed mathematics", text:"Calculator now only knows the number 4. Stability -10.", fx: s => { s.stab -= 10; APPS.find(a=>a.id==="calc").broken = true; } },
+  { day:2, title:"The desktop wallpaper became self-aware", text:"It asks to be called Gerald. Score +15 for acknowledging it.", fx: s => s.score += 15 },
+  { day:2, title:"Pigeon Mail is delivering to the Kernel", text:"Kernel is now receiving 40 letters a day. Stability -8.", fx: s => s.stab -= 8 },
+  { day:3, title:"Recycle Bin has been sentient since Tuesday", text:"It refuses to empty itself. It also sort of likes you. Stability +5.", fx: s => s.stab += 5 },
+  { day:3, title:"Clock is now in a different timezone", text:"It is currently 'Thursday-ish' in a neighboring OS. Bugs +1.", fx: s => s.bugs.push("Clock is in another timezone") },
+  { day:4, title:"A driver update installed a second cursor", text:"The second cursor is more confident than the first. Stability -6.", fx: s => s.stab -= 6 },
+  { day:4, title:"Jukebox Pro now only plays the sound of a husky sighing", text:"Users report feeling 'seen'. Score +25.", fx: s => s.score += 25 },
+  { day:5, title:"The Start Menu opened by itself and refuses to close", text:"It is politely asking for a fresh coat of paint. Stability -12.", fx: s => s.stab -= 12 },
+  { day:5, title:"Kernel 9.0 has replaced the moon in the taskbar", text:"Nobody is sure if this is an improvement. Score +30.", fx: s => s.score += 30 },
+  { day:6, title:"Every file is now named 'final_final_REAL'", text:"The file system is confused but cooperative. Bugs +2.", fx: s => { s.bugs.push("Files all named final_final_REAL"); s.bugs.push("File icons are fish"); } },
+  { day:6, title:"An update was downloaded from a lighthouse", text:"It is labeled 'Certified Trustworthy (by a lighthouse)'. Stability -15.", fx: s => s.stab -= 15 },
+  { day:7, title:"Release day: FloofOS 98 has achieved sentience", text:"It has asked for a day off. Score +50.", fx: s => s.score += 50 },
+  { day:1, title:"The Paperclip has unionized", text:"It now wants a seat at the Kernel meeting. Stability -5.", fx: s => s.stab -= 5 },
+  { day:2, title:"Solitaire keeps winning on purpose", text:"It is judging you. Score +10.", fx: s => s.score += 10 },
+  { day:3, title:"Defrag Deluxe defragmented your sock drawer", text:"Nobody asked. Stability -7.", fx: s => s.stab -= 7 },
+  { day:4, title:"Lydia's Screensaver has become a real husky", text:"She is asleep on the Kernel. The system is warmer. Stability +8.", fx: s => s.stab += 8 },
+  { day:5, title:"A backup was taken, then backed up into itself", text:"There are now 4 copies of Recycle Bin. Bugs +1.", fx: s => s.bugs.push("Recycle Bin exists in 4 copies") },
+  { day:6, title:"The taskbar filed a complaint", text:"It wants to be the desktop. Score +20.", fx: s => s.score += 20 }
+];
+
+let S;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function fresh(){
+  return { day:1, stab:80, score:0, installed:[], bugs:[pick(BUG_POOL), pick(BUG_POOL)], updates:[], viruses:[], actions:0, over:false, tick:0 };
+}
+function log(msg, color){
+  const p = document.createElement("p");
+  p.textContent = "[" + String(S.tick).padStart(3,"0") + "] " + msg;
+  if (color) p.style.color = color;
+  const el = document.getElementById("log");
+  el.appendChild(p); el.scrollTop = el.scrollHeight;
+}
+function clamp(){ S.stab = Math.max(0, Math.min(100, S.stab)); }
+function el(tag, props={}, ...kids){
+  const n = document.createElement(tag);
+  Object.assign(n, props);
+  kids.forEach(k => n.append(k));
+  return n;
+}
+function row(content, ...buttons){
+  const r = el("div", {className:"row"});
+  const left = el("div", {}, ...content);
+  r.append(left, el("div", {style:"display:flex; gap:4px;"}, ...buttons));
+  return r;
+}
+function btn(text, fn, disabled){
+  const b = el("button", {textContent:text, disabled: !!disabled || S.over});
+  b.onclick = fn;
+  return b;
+}
+
+function render(){
+  document.getElementById("day").textContent = S.day;
+  document.getElementById("score").textContent = S.score;
+  const st = document.getElementById("stab");
+  st.style.width = S.stab + "%";
+  st.style.background = S.stab > 50 ? "#000080" : S.stab > 25 ? "#808000" : "#800000";
+  document.getElementById("bugCount").textContent = S.bugs.length + " open";
+
+  const apps = document.getElementById("apps"); apps.innerHTML = "";
+  APPS.forEach(a => {
+    const has = S.installed.includes(a.id);
+    apps.append(row(
+      [el("strong", {textContent: a.name + (a.broken ? " (broken)" : "")}), el("small", {textContent: a.desc})],
+      btn(has ? "Installed" : "Install", () => install(a), has)
+    ));
+  });
+
+  const bugs = document.getElementById("bugs"); bugs.innerHTML = "";
+  if (!S.bugs.length) bugs.append(el("div", {className:"muted", textContent:"No bugs. Suspicious."}));
+  S.bugs.forEach((bug, i) => bugs.append(row([el("span", {textContent:bug})], btn("Fix", () => fixBug(i)))));
+
+  const up = document.getElementById("updates"); up.innerHTML = "";
+  if (!S.updates.length) up.append(el("div", {className:"muted", textContent:"Up to date (probably)."}));
+  S.updates.forEach((u, i) => up.append(row(
+    [el("strong", {textContent:u.name}), el("small", {textContent:"Risk " + Math.round(u.risk*100) + "% · " + u.good})],
+    btn("Install", () => applyUpdate(i)),
+    btn("Skip", () => { S.updates.splice(i,1); log("Skipped " + u.name + ". Kernel is disappointed."); render(); })
+  )));
+
+  const vir = document.getElementById("virus"); vir.innerHTML = "";
+  if (!S.viruses.length) vir.append(el("div", {className:"muted", textContent:"No threats. Antivirus is bored."}));
+  S.viruses.forEach((v, i) => vir.append(row(
+    [el("span", {}, el("span", {className:"tag bad", textContent:"THREAT"}), " " + v)],
+    btn("Quarantine", () => quarantine(i))
+  )));
+}
+
+function install(a){
+  if (S.over || S.installed.includes(a.id)) return;
+  S.installed.push(a.id); S.score += 10; S.actions++;
+  S.stab -= a.cost * 3 + 1; clamp();
+  log("Installed " + a.name + ". It asked for admin rights to 'be a calculator'.");
+  afterAction();
+}
+function fixBug(i){
+  if (S.over) return;
+  const b = S.bugs.splice(i,1)[0];
+  S.score += 15; S.stab += 4; S.actions++; clamp();
+  log("Fixed: " + b + ". Two new bugs appeared in its place.", "green");
+  if (Math.random() < 0.7) S.bugs.push(pick(BUG_POOL));
+  afterAction();
+}
+function applyUpdate(i){
+  if (S.over) return;
+  const u = S.updates.splice(i,1)[0];
+  S.actions++;
+  if (Math.random() < u.risk) {
+    S.stab -= 15; S.bugs.push(pick(BUG_POOL));
+    log("Update '" + u.name + "' broke something on the way in. Stability -15.", "#800000");
+  } else {
+    u.fn(S); log("Update '" + u.name + "' installed. " + u.good + ".", "green");
+  }
+  clamp(); afterAction();
+}
+function quarantine(i){
+  if (S.over) return;
+  const v = S.viruses.splice(i,1)[0];
+  S.score += 25; S.actions++;
+  log("Quarantined " + v + ". It said 'you'll never find me' from inside the quarantine.", "green");
+  afterAction();
+}
+
+function afterAction(){
+  if (S.actions % 3 === 0) { S.tick++; spawnRandom(); }
+  checkEnd(); render();
+}
+function spawnRandom(){
+  const r = Math.random();
+  if (r < 0.35) { const u = pick(UPDATE_POOL); S.updates.push({...u}); log("New update available: " + u.name); }
+  else if (r < 0.6) { const v = pick(VIRUSES); S.viruses.push(v); log("Threat detected: " + v, "#800000"); }
+  else if (r < 0.8) { S.bugs.push(pick(BUG_POOL)); log("New bug reported: " + S.bugs[S.bugs.length-1]); }
+  if (S.viruses.length > 2) { S.stab -= 5; log("Too many viruses. Stability -5.", "#800000"); clamp(); }
+  if (S.bugs.length > 6) { S.stab -= 3; clamp(); }
+}
+
+function nextDay(){
+  if (S.over) return;
+  const evs = GAME_EVENTS.filter(e => e.day === S.day);
+  const ev = evs.length ? pick(evs) : null;
+  S.day++;
+  S.stab -= 3; clamp();
+  if (S.day > 7) { checkEnd(); return; }
+  log("--- Day " + S.day + " begins ---");
+  if (ev) showEvent(ev);
+  checkEnd(); render();
+}
+function showEvent(e){
+  e.fx(S); clamp();
+  document.getElementById("eventTitle").textContent = e.title;
+  document.getElementById("eventText").textContent = e.text;
+  openWin("eventBox");
+  log("EVENT: " + e.title);
+}
+function checkEnd(){
+  if (S.over) return;
+  if (S.stab <= 0) return endGame(false, "FloofOS crashed. The kernel has left a note. It says 'sorry, I tried.'");
+  if (S.day > 7) return endGame(true, "FloofOS 98 shipped. Final score: " + S.score + ". Nobody can explain the Calculator, but it works.");
+}
+function endGame(won, text){
+  S.over = true;
+  document.getElementById("endTitle").textContent = won ? "Release Successful" : "System Failure";
+  document.getElementById("endText").textContent = text;
+  openWin("endDlg");
+  render();
+}
+
+/* Window management */
+let zTop = 10;
+function openWin(id){
+  const w = document.getElementById(id);
+  w.classList.add("show");
+  bringFront(w);
+  updateTasks();
+}
+function bringFront(w){
+  document.querySelectorAll(".win").forEach(x => x.classList.remove("focus"));
+  w.classList.add("focus");
+  w.style.zIndex = ++zTop;
+  updateTasks();
+}
+function toggleWin(id){
+  const w = document.getElementById(id);
+  if (w.classList.contains("dialog")) return;
+  if (w.style.display === "none") { w.style.display = ""; bringFront(w); }
+  else if (w.classList.contains("focus")) { w.style.display = "none"; w.classList.remove("focus"); updateTasks(); }
+  else bringFront(w);
+}
+function updateTasks(){
+  const t = document.getElementById("tasks"); t.innerHTML = "";
+  document.querySelectorAll(".win:not(.dialog)").forEach(w => {
+    const title = w.querySelector(".titlebar span").textContent.trim();
+    const b = el("div", {className:"task" + (w.classList.contains("focus") && w.style.display !== "none" ? " active" : ""), textContent: title});
+    b.onclick = () => toggleWin(w.id);
+    t.append(b);
+  });
+}
+
+/* Drag windows */
+document.querySelectorAll(".win .titlebar").forEach(bar => {
+  bar.addEventListener("mousedown", e => {
+    const w = bar.parentElement;
+    bringFront(w);
+    const startX = e.clientX, startY = e.clientY;
+    const rect = w.getBoundingClientRect();
+    const ox = rect.left, oy = rect.top;
+    const move = ev => {
+      w.style.left = (ox + ev.clientX - startX) + "px";
+      w.style.top = Math.max(0, oy + ev.clientY - startY) + "px";
+    };
+    const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  });
+  bar.parentElement.addEventListener("mousedown", () => bringFront(bar.parentElement));
+});
+document.querySelectorAll(".btn").forEach(b => {
+  if (b.textContent.trim() === "x") b.onclick = e => { const w = b.closest(".win"); w.style.display = "none"; w.classList.remove("show","focus"); updateTasks(); };
+  if (b.textContent.trim() === "_") b.onclick = e => { const w = b.closest(".win"); w.style.display = "none"; updateTasks(); };
+});
+
+/* Desktop icons and start menu */
+document.querySelectorAll("[data-win]").forEach(n => {
+  n.addEventListener("dblclick", () => { const w = document.getElementById(n.dataset.win); w.style.display = ""; bringFront(w); });
+  n.addEventListener("click", () => { if (n.closest("#startMenu")) { const w = document.getElementById(n.dataset.win); w.style.display = ""; bringFront(w); document.getElementById("startMenu").classList.remove("show"); } });
+});
+document.getElementById("startBtn").onclick = e => { e.stopPropagation(); document.getElementById("startMenu").classList.toggle("show"); };
+document.addEventListener("click", e => { if (!e.target.closest("#startMenu") && !e.target.closest("#startBtn")) document.getElementById("startMenu").classList.remove("show"); });
+document.getElementById("menuReset").onclick = () => { document.getElementById("startMenu").classList.remove("show"); reset(); };
+document.getElementById("endDay").onclick = nextDay;
+document.getElementById("eventBtn").onclick = () => { document.getElementById("eventBox").classList.remove("show"); updateTasks(); };
+document.getElementById("restart").onclick = () => { document.getElementById("endDlg").classList.remove("show"); reset(); };
+
+function reset(){
+  APPS.forEach(a => delete a.broken);
+  document.getElementById("log").innerHTML = "";
+  S = fresh();
+  log("FloofOS 98 reinstalled. Please do not install anything named 'Bread'.");
+  render();
+}
+
+function tickClock(){
+  const d = new Date();
+  document.getElementById("clock").textContent = d.toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+}
+setInterval(tickClock, 1000); tickClock();
+
+/* Flappy Husky */
+let fb = { y:100, v:0, pipes:[], score:0, running:false, dead:false, best:0, frame:0 };
+function openFlappy(){
+  const w = document.getElementById('w-flappy');
+  w.style.display = ''; bringFront(w);
+  document.getElementById('startMenu').classList.remove('show');
+  flappyReset();
+}
+function closeFlappy(){ const w = document.getElementById('w-flappy'); w.style.display = 'none'; fb.running = false; updateTasks(); }
+function flappyReset(){
+  fb = { y:100, v:0, pipes:[], score:0, running:false, dead:false, best:fb.best, frame:0 };
+  drawFlappy('Press Space or click to start');
+}
+function flappyFlap(){
+  if (fb.dead) { flappyReset(); return; }
+  if (!fb.running) { fb.running = true; requestAnimationFrame(flappyLoop); }
+  fb.v = -4.2;
+}
+function flappyLoop(){
+  if (!fb.running) return;
+  fb.frame++;
+  fb.v += 0.25; fb.y += fb.v;
+  if (fb.frame % 90 === 1) fb.pipes.push({ x:320, gap: 60 + Math.random()*120, passed:false });
+  fb.pipes.forEach(p => p.x -= 2);
+  for (const p of fb.pipes) {
+    if (!p.passed && p.x + 40 < 40) { p.passed = true; fb.score++; }
+    if (p.x < 70 && p.x + 40 > 30) {
+      if (fb.y - 10 < p.gap - 50 || fb.y + 10 > p.gap + 50) return flappyDie();
+    }
+  }
+  if (fb.y < 10 || fb.y > 230) return flappyDie();
+  fb.pipes = fb.pipes.filter(p => p.x > -60);
+  drawFlappy();
+  requestAnimationFrame(flappyLoop);
+}
+function flappyDie(){
+  fb.dead = true; fb.running = false;
+  fb.best = Math.max(fb.best, fb.score);
+  S.score += fb.score * 2; S.actions++;
+  log('Flappy Husky ended with ' + fb.score + ' points. FloofOS score +' + (fb.score * 2) + '.', 'green');
+  checkEnd(); render();
+  drawFlappy('Game over. Click to retry');
+}
+function drawFlappy(msg){
+  const c = document.getElementById('fbCanvas'); if (!c) return;
+  const g = c.getContext('2d');
+  g.fillStyle = '#008080'; g.fillRect(0, 0, 320, 240);
+  g.fillStyle = '#808080';
+  fb.pipes.forEach(p => {
+    g.fillRect(p.x, 0, 40, p.gap - 50);
+    g.fillRect(p.x, p.gap + 50, 40, 240);
+  });
+  g.font = '28px serif'; g.textBaseline = 'middle';
+  g.fillText('🐕', 30, fb.y);
+  g.fillStyle = '#fff'; g.font = 'bold 16px Tahoma, sans-serif';
+  g.fillText('Score: ' + fb.score + '   Best: ' + fb.best, 8, 14);
+  if (msg) { g.fillStyle = '#000080'; g.fillRect(40, 100, 240, 30); g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(msg, 160, 115); g.textAlign = 'left'; }
+}
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && document.getElementById('w-flappy').style.display !== 'none') { e.preventDefault(); flappyFlap(); }
+});
+
+// Place the event and end dialogs in the centre of the desktop
+document.getElementById("eventBox").style.top = "30%";
+S = fresh();
+log("FloofOS 98 installed. Please remain calm.");
+render();
+updateTasks();
+</script>
+</body>
+</html>

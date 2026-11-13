@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bossy Floof</title>
+<style>
+  :root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  :root, :root[data-theme="light"] {
+    --bg: #f4efe6; --paper: #fffdf8; --ink: #2a2520; --muted: #7a6f63;
+    --accent: #c2410c; --good: #15803d; --bad: #b91c1c; --line: #d6cdbd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1714; --paper: #26221d; --ink: #f1ebe0; --muted: #9c9284;
+      --accent: #fb923c; --good: #4ade80; --bad: #f87171; --line: #3d362d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Georgia, "Times New Roman", serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+  header { padding: 16px; border-bottom: 2px solid var(--ink); display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+  h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.5px; }
+  .day { font-family: "Courier New", monospace; color: var(--accent); font-weight: bold; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; }
+  .stat { background: var(--paper); border: 1px solid var(--line); padding: 8px; text-align: center; font-family: "Courier New", monospace; font-size: 0.8rem; }
+  .stat b { display: block; font-size: 1.3rem; margin-top: 4px; }
+  .bar { height: 6px; background: var(--line); margin-top: 6px; }
+  .bar > div { height: 100%; background: var(--accent); transition: width .3s; }
+  main { padding: 8px 16px 40px; max-width: 680px; margin: 0 auto; }
+  .card { background: var(--paper); border: 1px solid var(--line); box-shadow: 4px 4px 0 var(--ink); padding: 18px; margin-bottom: 18px; }
+  .card h2 { margin: 0 0 8px; font-size: 1.15rem; }
+  .card p { margin: 0 0 12px; line-height: 1.5; }
+  .tag { font-family: "Courier New", monospace; font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  button { display: block; width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--ink); padding: 10px 12px; margin-top: 8px; cursor: pointer; }
+  button:hover { background: var(--accent); color: #fff; }
+  button small { display: block; color: var(--muted); font-family: "Courier New", monospace; font-size: 0.75rem; margin-top: 4px; }
+  button:hover small { color: #fff; }
+  .result { font-style: italic; padding: 10px; border-left: 3px solid var(--accent); margin-bottom: 14px; background: var(--bg); }
+  .primary { background: var(--ink); color: var(--paper); text-align: center; font-weight: bold; }
+  .primary:hover { background: var(--accent); color: #fff; }
+  .end { text-align: center; padding: 30px 10px; }
+  .end h2 { font-size: 1.8rem; }
+  @media (max-width: 480px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>BOSSY FLOOF <span class="tag">CEO of Floofy Tech</span></h1>
+  <div class="day" id="dayLabel">DAY 1 / 30</div>
+</header>
+<div class="stats" id="stats"></div>
+<main id="main"></main>
+
+<script>
+const MAX_DAYS = 30;
+const state = { day: 1, cash: 100, morale: 70, trust: 70, uptime: 90 };
+const STAT_NAMES = { cash: "Cash", morale: "Morale", trust: "Investor Trust", uptime: "Uptime" };
+
+// Each effect is a delta applied to the four stats. Values are clamped 0-100.
+const EVENTS = [
+  { title: "Server Room on Fire", tag: "Infrastructure",
+    text: "Smoke is coming out of Rack 4. The fire alarm is a sad beep that nobody has fixed since March.",
+    choices: [
+      { label: "Hit it with the fire extinguisher you bought as a joke", fx: { uptime: -15, morale: 5 }, res: "It worked. Mostly. Rack 4 is now a rack of puddles." },
+      { label: "Call the 'IT guy' (he is the intern)", fx: { uptime: -5, morale: -5 }, res: "He arrived holding a bagel and a fire blanket. Somehow it was enough." },
+      { label: "Pour the coffee on it", fx: { uptime: -20, cash: -5 }, res: "It was not the good coffee. It was the good coffee. There is no good coffee anymore." }
+    ]},
+  { title: "Husky Steals Source Code", tag: "Security",
+    text: "The office husky has run off with a USB drive containing the entire codebase. It is currently under the couch, chewing on the cable.",
+    choices: [
+      { label: "Negotiate with treats", fx: { cash: -10, morale: 5 }, res: "Forty dollars of jerky later, you have the drive. It is slightly damp." },
+      { label: "Chase it around the office for 40 minutes", fx: { morale: -10, uptime: -5 }, res: "Everyone cheered. Nobody did any work. The husky won." },
+      { label: "Blame the intern and move on", fx: { morale: -15, trust: -5 }, res: "The intern cried. The husky got a promotion. The code is now on a Reddit thread." }
+    ]},
+  { title: "Investors Want Explanations", tag: "Board",
+    text: "The lead investor has emailed one word: 'Explain.' The attachment is a spreadsheet with a cell that says #REF!.",
+    choices: [
+      { label: "Present a 90-slide deck with the word 'synergy' in every slide", fx: { trust: 10, morale: -5 }, res: "They loved it. Nobody read it. Nobody ever reads it." },
+      { label: "Tell the truth: the husky ate the drive", fx: { trust: -15, morale: 5 }, res: "Surprisingly, the investor respects this. He wants a husky for his office now." },
+      { label: "Send a tasteful flower arrangement", fx: { cash: -8, trust: 5 }, res: "The flowers are very nice. The #REF! remains unexplained." }
+    ]},
+  { title: "Intern Releases Nuclear Calculator Update", tag: "Product Emergency",
+    text: "Version 4.2.1 of the free calculator app now includes a button labeled LAUNCH. Users are asking why it does not say what it does.",
+    choices: [
+      { label: "Roll back the update immediately", fx: { uptime: -5, trust: -5 }, res: "Rolled back. The LAUNCH button is still on three phones in Ohio. Nobody knows why." },
+      { label: "Call it a 'feature' and write a press release", fx: { trust: -10, cash: 10 }, res: "A tech blog called it 'bold.' Downloads spiked. You are not proud." },
+      { label: "Fire the intern (sorry, 'reassign to Printer Operations')", fx: { morale: -15, trust: 5 }, res: "The intern says they are proud of you. You do not know what to do with that." }
+    ]},
+  { title: "Legal Says the Fire Is a 'Feature'", tag: "Legal",
+    text: "Your lawyer, Doreen, wants to know if the server fire is covered under the 'Acts of Floof' clause of your lease.",
+    choices: [
+      { label: "Yes, file it under Acts of Floof", fx: { cash: 5, trust: -5 }, res: "The insurance company is confused and paid anyway. Probably." },
+      { label: "No, pay for the damage out of pocket", fx: { cash: -20, morale: 5 }, res: "Expensive. Honest. Doreen sends a single thumbs up." },
+      { label: "Ask Doreen to write a poem about it", fx: { morale: 10, cash: -3 }, res: "The poem is terrible. The office loves it. It is framed in the lobby." }
+    ]},
+  { title: "A Raccoon Has Admin Access", tag: "Security",
+    text: "Someone (or something) changed the Wi-Fi password to 'trash_panda_42.' Everyone is locked out of the staging server.",
+    choices: [
+      { label: "Hire a security consultant", fx: { cash: -15, uptime: 10 }, res: "He fixed it in an hour and charged you for three." },
+      { label: "Put out a bowl of cat food as a peace offering", fx: { uptime: -5, morale: 5 }, res: "The raccoon accepted. The password is still trash_panda_42." },
+      { label: "Reset everything and pretend it never happened", fx: { uptime: -10, morale: -5 }, res: "It is back. The raccoon left a note. It said 'thx.'" }
+    ]},
+  { title: "The Printer Demands Tribute", tag: "Office Life",
+    text: "The office printer has jammed again. A sticky note on it reads: 'FEED ME ONE (1) HOLIDAY BONUS OR SUFFER.'",
+    choices: [
+      { label: "Pay the bonus in pizza instead", fx: { cash: -8, morale: 8 }, res: "The printer is quiet now. Everyone is happy. The pizza was pepperoni." },
+      { label: "Throw it out the window", fx: { morale: -5, uptime: -5 }, res: "It landed on a pedestrian. He was not impressed. Neither was the printer." },
+      { label: "Ignore it and print by hand", fx: { morale: -10, uptime: -10 }, res: "You have printed nine pages in four hours. Your hand hurts." }
+    ]},
+  { title: "Pitch Meeting With a Dolphin VC", tag: "Fundraising",
+    text: "A venture capitalist who insists he is 'not a dolphin, but has a dolphin spirit' wants to invest. He is on a video call from a pool.",
+    choices: [
+      { label: "Take the money, dolphin terms and all", fx: { cash: 25, trust: -10 }, res: "The contract is 40 pages long and mostly about fish. You have money now." },
+      { label: "Politely decline", fx: { trust: 3 }, res: "He flipped twice and left the call. Respect was gained. Money was not." },
+      { label: "Pitch him on Floofy Tech's Dogpen suite", fx: { trust: 8, cash: 5 }, res: "He used it to write a haiku. The haiku was good. He invested a little." }
+    ]},
+  { title: "Hackathon With No Wi-Fi", tag: "Team",
+    text: "Your team has scheduled a 48-hour hackathon. The office Wi-Fi was disconnected for an unpaid bill last Tuesday.",
+    choices: [
+      { label: "Pay the Wi-Fi bill", fx: { cash: -12, uptime: 8 }, res: "Connectivity restored. The team is annoyingly productive." },
+      { label: "Make everyone hack on paper", fx: { morale: -12, uptime: -8 }, res: "Surprisingly good design docs. Zero code. A lot of drawings of the husky." },
+      { label: "Move the hackathon to the coffee shop", fx: { cash: -6, morale: 6 }, res: "Your team spent twelve dollars on lattes and found the bug in the login page." }
+    ]},
+  { title: "Viral Tweet About Your Logo", tag: "PR",
+    text: "A user posted a photo of the Floofy Tech logo next to a dog. The dog looks more professional than your logo.",
+    choices: [
+      { label: "Reply with a dignified statement", fx: { trust: 5 }, res: "It got two thousand likes and one angry comment from a designer." },
+      { label: "Reply with the dog", fx: { morale: 8, trust: -3 }, res: "The dog became the new logo. Nobody asked for this." },
+      { label: "Commission a $3,000 logo redesign", fx: { cash: -15, trust: 8 }, res: "The new logo is also a dog. The dog has a tie now." }
+    ]},
+  { title: "Intern Asks For a Raise", tag: "HR",
+    text: "The intern who saved the server room (with a bagel) has asked for a raise. They have a spreadsheet to prove it.",
+    choices: [
+      { label: "Approve the raise", fx: { cash: -10, morale: 12 }, res: "They screamed with joy in the stairwell. Productivity went up noticeably." },
+      { label: "Offer a title upgrade and a bigger mug", fx: { morale: 4, cash: -2 }, res: "They accepted. The mug says WORLD'S BEST INTERN in gold letters." },
+      { label: "Say the budget is 'in flux'", fx: { morale: -12, trust: -3 }, res: "They are updating their resume during standup." }
+    ]},
+  { title: "Customer Asks For Dark Mode", tag: "Product",
+    text: "Your biggest customer wants dark mode. Your product team has been building it for two years and it is 'almost done.'",
+    choices: [
+      { label: "Ship dark mode today, even if it is ugly", fx: { trust: 6, uptime: -5 }, res: "It shipped. It is very dark. Customers are thrilled." },
+      { label: "Tell them it is coming in Q3", fx: { trust: -4 }, res: "The customer has heard that before. They are writing a blog post about it." },
+      { label: "Assign the entire team to dark mode", fx: { uptime: -10, morale: -8, trust: 5 }, res: "Dark mode is beautiful. Nothing else works." }
+    ]}
+];
+
+const DAY_FLAVOR = [
+  "Monday. The coffee machine is making a noise like a trumpet.",
+  "Tuesday. A sticky note says 'We need to talk.' It is from the husky.",
+  "Wednesday. The office plant has been named CEO. It is doing better than you.",
+  "Thursday. The fire alarm is testing itself again.",
+  "Friday. Everyone wants to leave early. Nobody is allowed to.",
+  "Saturday. The office is empty. Something is still making noise in the server room."
+];
+
+function clamp(n) { return Math.max(0, Math.min(100, n)); }
+
+function applyFx(fx) {
+  for (const k of Object.keys(fx)) state[k] = clamp(state[k] + fx[k]);
+}
+
+function renderStats() {
+  const el = document.getElementById("stats");
+  el.innerHTML = Object.keys(STAT_NAMES).map(k => {
+    const v = state[k];
+    return `<div class="stat">${STAT_NAMES[k]}<b>${v}</b><div class="bar"><div style="width:${v}%"></div></div></div>`;
+  }).join("");
+  document.getElementById("dayLabel").textContent = `DAY ${state.day} / ${MAX_DAYS}`;
+}
+
+function pickEvents() {
+  const pool = [...EVENTS];
+  const picks = [];
+  const count = 2 + (Math.random() < 0.5 ? 1 : 0);
+  for (let i = 0; i < count && pool.length; i++) {
+    picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+  return picks;
+}
+
+function gameOver(reason) {
+  document.getElementById("main").innerHTML = `
+    <div class="card end">
+      <div class="tag">Game Over</div>
+      <h2>Floofy Tech is no more.</h2>
+      <p>${reason}</p>
+      <p>You lasted ${state.day} day${state.day === 1 ? "" : "s"}.</p>
+      <button class="primary" onclick="restart()">Try Again</button>
+    </div>`;
+}
+
+function winGame() {
+  document.getElementById("main").innerHTML = `
+    <div class="card end">
+      <div class="tag">Quarter Closed</div>
+      <h2>You survived 30 days.</h2>
+      <p>The husky is still not sorry. The server is still on fire, slightly. But Floofy Tech is still standing, and so are you.</p>
+      <button class="primary" onclick="restart()">Play Again</button>
+    </div>`;
+}
+
+function checkLoss() {
+  for (const k of Object.keys(STAT_NAMES)) {
+    if (state[k] <= 0) {
+      const reasons = {
+        cash: "The bank froze the account. Payroll bounced. The husky is now the majority shareholder.",
+        morale: "Everyone quit at once, in a group email, with a GIF.",
+        trust: "The investors pulled out and bought a yacht instead.",
+        uptime: "The servers are on fire. All of them. The fire department asked for a logo."
+      };
+      gameOver(reasons[k]);
+      return true;
+    }
+  }
+  return false;
+}
+
+function showDay() {
+  renderStats();
+  if (state.day > MAX_DAYS) return winGame();
+  const events = pickEvents();
+  const main = document.getElementById("main");
+  main.innerHTML = `
+    <div class="card"><div class="tag">Morning Briefing</div>
+      <p>${DAY_FLAVOR[(state.day - 1) % DAY_FLAVOR.length]}</p></div>
+    <div id="events"></div>`;
+  const container = document.getElementById("events");
+  let idx = 0;
+  const showNext = () => {
+    if (idx >= events.length) return endOfDay();
+    const ev = events[idx++];
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `<div class="tag">${ev.tag}</div><h2>${ev.title}</h2><p>${ev.text}</p>`;
+    ev.choices.forEach(c => {
+      const b = document.createElement("button");
+      const fxText = Object.entries(c.fx).map(([k, v]) => `${STAT_NAMES[k]} ${v > 0 ? "+" : ""}${v}`).join(" · ");
+      b.innerHTML = `${c.label}<small>${fxText}</small>`;
+      b.onclick = () => {
+        applyFx(c.fx);
+        renderStats();
+        div.innerHTML = `<div class="tag">${ev.tag}</div><h2>${ev.title}</h2><div class="result">${c.res}</div>`;
+        if (checkLoss()) return;
+        const next = document.createElement("button");
+        next.className = "primary";
+        next.textContent = idx < events.length ? "Next problem" : "End the day";
+        next.onclick = () => { next.remove(); showNext(); };
+        div.appendChild(next);
+      };
+      div.appendChild(b);
+    });
+    container.appendChild(div);
+    div.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  showNext();
+}
+
+function endOfDay() {
+  if (checkLoss()) return;
+  const passive = { cash: 3, morale: 0, trust: 0, uptime: 1 };
+  applyFx(passive);
+  state.day++;
+  const container = document.getElementById("events");
+  const div = document.createElement("div");
+  div.className = "card";
+  div.innerHTML = `<div class="tag">End of Day</div><p>Revenue trickled in. The servers mostly stayed on.</p>`;
+  const b = document.createElement("button");
+  b.className = "primary";
+  b.textContent = state.day > MAX_DAYS ? "See the final report" : `Start Day ${state.day}`;
+  b.onclick = showDay;
+  div.appendChild(b);
+  container.appendChild(div);
+  div.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function restart() {
+  Object.assign(state, { day: 1, cash: 100, morale: 70, trust: 70, uptime: 90 });
+  showDay();
+}
+
+showDay();
+</script>
+</body>
+</html>
