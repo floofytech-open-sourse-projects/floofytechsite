@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Ruff Ruff Rally</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0a08;color:#e9dcc3;font-family:system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ctl{position:fixed;touch-action:none}
+#stick{left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:130px;height:130px;border-radius:50%;background:rgba(20,17,13,.45);border:2px solid rgba(233,220,195,.35)}
+#knob{position:absolute;left:37px;top:37px;width:56px;height:56px;border-radius:50%;background:rgba(196,106,45,.85);box-shadow:0 2px 8px #000a;pointer-events:none}
+.act{width:64px;height:64px;border-radius:50%;border:2px solid rgba(233,220,195,.5);background:rgba(20,17,13,.6);color:#e9dcc3;font:700 15px system-ui;display:flex;align-items:center;justify-content:center;right:calc(16px + env(safe-area-inset-right,0px))}
+#bE{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+#bR{bottom:calc(90px + env(safe-area-inset-bottom,0px))}
+#bG{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+#bF{bottom:calc(230px + env(safe-area-inset-bottom,0px))}
+#bE.on{background:rgba(143,191,90,.8);color:#111}
+#garage{display:none;position:fixed;inset:0;background:rgba(14,11,8,.95);overflow:auto;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px))}
+#garage.open{display:block}
+#garage h2{margin:0 0 6px;font-size:1.2rem;color:#c46a2d}
+.cat{margin-top:12px}
+.cat strong{display:block;margin-bottom:6px}
+.item{display:inline-block;min-height:44px;margin:3px;padding:8px 12px;border:1px solid #0006;border-radius:8px;background:#24201a;color:#e9dcc3;font:inherit;font-size:.9rem;cursor:pointer}
+.item.eq{border-color:#8fbf5a;box-shadow:0 0 0 1px #8fbf5a inset}
+.btn{min-height:44px;padding:10px 16px;border-radius:8px;border:0;background:#c46a2d;color:#fff;font:600 1rem system-ui;cursor:pointer}
+#garageStats{font-size:.95rem;margin-top:12px;line-height:1.5}
+#help{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font-size:.8rem;opacity:.85;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:6px;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="help"></div>
+<div id="stick" class="ctl"><div id="knob"></div></div>
+<button id="bE" class="ctl act" aria-label="Enter or exit buggy">E</button>
+<button id="bR" class="ctl act" aria-label="Repair">R</button>
+<button id="bG" class="ctl act" aria-label="Garage">G</button>
+<button id="bF" class="ctl act" aria-label="Shoot">F</button>
+<div id="garage">
+  <h2>Garage</h2>
+  <div id="garageBody"></div>
+  <div id="garageStats"></div>
+  <p><button class="btn" onclick="toggleGarage()">Close</button></p>
+</div>
+
+<script>
+const WORLD = 2400;
+const ZONES = [
+  {n:'Dune Sand',    grip:4, rough:0.3, speed:0.9, col:'#c9a86a', dk:'#8a6a3a', lt:'#f0d8a0'},
+  {n:'Rubble Field', grip:6, rough:0.8, speed:0.7, col:'#8a7b6a', dk:'#4a3f35', lt:'#b8a890'},
+  {n:'Mud Flats',    grip:5, rough:0.5, speed:0.6, col:'#5b4a33', dk:'#33271a', lt:'#7a6548'},
+  {n:'Glass Plain',  grip:7, rough:0.4, speed:1.0, col:'#9fb3b8', dk:'#5d7278', lt:'#eaf6fa'}
+];
+const ZX = [0, 800, 1600, 2000, WORLD];
+function zoneAt(x){ return x < 800 ? ZONES[0] : x < 1600 ? ZONES[1] : x < 2000 ? ZONES[2] : ZONES[3]; }
+
+const CATS = {
+  wheels:{name:'Wheels', items:[
+    {n:'Tire Scraps', grip:3, dur:60, w:4, col:'#555'},
+    {n:'Truck Rims', grip:5, dur:85, w:9, col:'#9aa'},
+    {n:'Monster Balloons', grip:7, dur:35, w:6, col:'#d56'},
+    {n:'Spiked Rollers', grip:6, dur:90, w:12, col:'#dd4'}]},
+  armor:{name:'Armor', items:[
+    {n:'Rusted Sheet', hp:40, w:10, col:'#a0643a'},
+    {n:'Car Door Plating', hp:70, w:18, col:'#5a7fa8'},
+    {n:'Fridge Shell', hp:55, w:14, col:'#d8dde0'},
+    {n:'Tank Tread Panels', hp:110, w:30, col:'#4f6b45'}]},
+  engine:{name:'Engine', items:[
+    {n:'Lawnmower Motor', pow:20, w:5, fuel:1.4, col:'#3a8a3a'},
+    {n:'V6 Scavenge', pow:45, w:25, fuel:1, col:'#3a6aa8'},
+    {n:'Diesel Bricks', pow:70, w:40, fuel:0.7, col:'#b8662e'}]},
+  camera:{name:'Camera', items:[
+    {n:'Cracked Phone', vis:0.10, w:0.2, col:'#7f8fa0'},
+    {n:'Drone Eye', vis:0.22, w:1, col:'#9a6fd0'},
+    {n:'Periscope Tube', vis:0.16, w:3, col:'#6fae6f'}]},
+  suspension:{name:'Suspension', items:[
+    {n:'Bedsprings', abs:0.3, w:5, col:'#c08050'},
+    {n:'Shock Absorbers', abs:0.6, w:7, col:'#40b0b0'},
+    {n:'Hydraulic Ram', abs:0.9, w:15, col:'#e07aa8'}]}
+};
+
+let uidc = 0;
+function mk(cat, base){ return Object.assign({}, base, {cat, uid: ++uidc}); }
+function randomPart(){
+  const keys = Object.keys(CATS);
+  const cat = keys[Math.floor(Math.random()*keys.length)];
+  const items = CATS[cat].items;
+  return mk(cat, items[Math.floor(Math.random()*items.length)]);
+}
+function rnd(a, b){ return a + Math.random()*(b-a); }
+function dist(a, b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+
+const GARAGE = {x:400, y:1200, r:110};
+const PROVING = {x:2250, y:1200, r:90};
+
+const rocks = [];
+for (let tries = 0; tries < 500 && rocks.length < 150; tries++){
+  const r = {x:rnd(40, WORLD-40), y:rnd(40, WORLD-40), r:rnd(10, 32)};
+  if (dist(r, GARAGE) < GARAGE.r + 60) continue;
+  if (dist(r, PROVING) < PROVING.r + 60) continue;
+  rocks.push(r);
+}
+const crates = [];
+for (let i = 0; i < 70; i++) crates.push({x:rnd(60, WORLD-60), y:rnd(60, WORLD-60), item:randomPart(), taken:false});
+const cans = [];
+for (let i = 0; i < 22; i++) cans.push({x:rnd(60, WORLD-60), y:rnd(60, WORLD-60), taken:false});
+const mines = [];
+for (let i = 0; i < 60; i++) mines.push({x:rnd(60, WORLD-60), y:rnd(60, WORLD-60), done:false, revealed:false});
+
+const aliens = [];
+for (let i = 0; i < 60; i++){
+  let x, y;
+  do { x = rnd(80, WORLD-80); y = rnd(80, WORLD-80); } while (dist({x, y}, GARAGE) < 260);
+  aliens.push({x, y, vx:0, vy:0, hp:2, cd:0, stun:0, wt:rnd(0, 2), bob:rnd(0, 6), dead:false});
+}
+
+const starter = {
+  wheels:mk('wheels', CATS.wheels.items[0]),
+  armor:mk('armor', CATS.armor.items[0]),
+  engine:mk('engine', CATS.engine.items[0]),
+  camera:mk('camera', CATS.camera.items[0]),
+  suspension:mk('suspension', CATS.suspension.items[0])
+};
+
+const G = {
+  player:{x:GARAGE.x+30, y:GARAGE.y, r:9, walk:0},
+  buggy:{x:GARAGE.x, y:GARAGE.y, a:0, v:0, hp:0, wheel:0, fuel:300, inBuggy:false, spin:0, braking:false, throttle:false},
+  inv:Object.values(starter),
+  equipped:Object.assign({}, starter),
+  menu:false, msg:'', msgT:0, score:0, proved:false, wrecks:0, helpT:9,
+  tracks:[], parts:[], time:0
+};
+{
+  const s = stats(G.equipped);
+  G.buggy.hp = s.hp; G.buggy.wheel = s.dur;
+}
+
+function stats(eq){
+  const w = eq.wheels.w*4 + eq.armor.w + eq.engine.w + eq.camera.w + eq.suspension.w;
+  return {w, pow:eq.engine.pow, grip:eq.wheels.grip, dur:eq.wheels.dur, hp:eq.armor.hp,
+          vis:eq.camera.vis, abs:eq.suspension.abs, fuel:eq.engine.fuel};
+}
+function say(t){ G.msg = t; G.msgT = 3; }
+
+/* ---------- Ground textures ---------- */
+const tiles = ZONES.map((z, zi) => {
+  const t = document.createElement('canvas');
+  t.width = t.height = 160;
+  const c = t.getContext('2d');
+  c.fillStyle = z.col; c.fillRect(0, 0, 160, 160);
+  for (let i = 0; i < 380; i++){
+    c.fillStyle = Math.random() < 0.5 ? z.dk : z.lt;
+    c.globalAlpha = 0.08 + Math.random()*0.18;
+    c.beginPath(); c.arc(Math.random()*160, Math.random()*160, 0.5 + Math.random()*2.4, 0, 7); c.fill();
+  }
+  if (zi === 0){ // dune ripples
+    c.globalAlpha = 0.12; c.strokeStyle = z.dk; c.lineWidth = 2;
+    for (let y = 0; y < 160; y += 22){ c.beginPath(); c.moveTo(0, y); c.bezierCurveTo(40, y-6, 90, y+6, 160, y); c.stroke(); }
+  }
+  if (zi === 1){ // rubble chips
+    c.globalAlpha = 0.5;
+    for (let i = 0; i < 40; i++){ c.fillStyle = z.dk; c.fillRect(Math.random()*160, Math.random()*160, 3+Math.random()*4, 2+Math.random()*3); }
+  }
+  if (zi === 2){ // mud cracks
+    c.globalAlpha = 0.35; c.strokeStyle = z.dk; c.lineWidth = 1;
+    for (let i = 0; i < 14; i++){ c.beginPath(); const x = Math.random()*160, y = Math.random()*160; c.moveTo(x, y); c.lineTo(x+rnd(-20,20), y+rnd(-20,20)); c.stroke(); }
+  }
+  if (zi === 3){ // glass shards and glints
+    c.globalAlpha = 0.6;
+    for (let i = 0; i < 30; i++){ c.strokeStyle = z.lt; c.lineWidth = 1; const x = Math.random()*160, y = Math.random()*160; c.beginPath(); c.moveTo(x, y); c.lineTo(x+rnd(3,9), y+rnd(-4,4)); c.stroke(); }
+  }
+  c.globalAlpha = 1;
+  return t;
+});
+let patterns = null;
+
+if (!CanvasRenderingContext2D.prototype.roundRect){ CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h){ this.rect(x, y, w, h); }; }
+/* ---------- Input ---------- */
+const K = {};
+const TOUCH = {x:0, y:0};
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if (!K[k] && !G.menu){
+    if (k === 'e') toggleEnter();
+    if (k === 'r') repair();
+    if (k === 'f' || k === ' ') fire();
+  }
+  if (k === 'g' || (k === 'escape' && G.menu)) toggleGarage();
+  K[k] = true;
+});
+addEventListener('keyup', e => { K[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in K) K[k] = false; TOUCH.x = 0; TOUCH.y = 0; });
+
+function readInput(){
+  const kx = ((K.d||K.arrowright)?1:0) - ((K.a||K.arrowleft)?1:0);
+  const ky = ((K.s||K.arrowdown)?1:0) - ((K.w||K.arrowup)?1:0);
+  return {x: clamp(kx + TOUCH.x, -1, 1), y: clamp(ky + TOUCH.y, -1, 1)};
+}
+
+const stick = document.getElementById('stick');
+const knob = document.getElementById('knob');
+let stickId = null, stickCx = 0, stickCy = 0, stickR = 65;
+stick.addEventListener('pointerdown', e => {
+  stickId = e.pointerId; stick.setPointerCapture(e.pointerId);
+  const r = stick.getBoundingClientRect();
+  stickCx = r.left + r.width/2; stickCy = r.top + r.height/2; stickR = r.width/2;
+  stickMove(e);
+});
+stick.addEventListener('pointermove', e => { if (e.pointerId === stickId) stickMove(e); });
+function stickEnd(e){
+  if (e.pointerId !== stickId) return;
+  stickId = null; TOUCH.x = 0; TOUCH.y = 0;
+  knob.style.transform = '';
+}
+stick.addEventListener('pointerup', stickEnd);
+stick.addEventListener('pointercancel', stickEnd);
+function stickMove(e){
+  const dx = e.clientX - stickCx, dy = e.clientY - stickCy;
+  const len = Math.hypot(dx, dy) || 1;
+  const m = Math.min(1, len / (stickR * 0.7));
+  TOUCH.x = dx/len * m; TOUCH.y = dy/len * m;
+  const kx = dx/len * Math.min(len, stickR*0.6), ky = dy/len * Math.min(len, stickR*0.6);
+  knob.style.transform = `translate(${kx}px, ${ky}px)`;
+}
+
+function tapBtn(id, fn){
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); fn(); });
+}
+tapBtn('bE', () => toggleEnter());
+tapBtn('bR', () => repair());
+tapBtn('bG', () => toggleGarage());
+tapBtn('bF', () => fire());
+
+function toggleEnter(){
+  const b = G.buggy;
+  if (b.inBuggy){
+    b.inBuggy = false; b.v = 0;
+    G.player.x = b.x + Math.cos(b.a + Math.PI/2) * 26;
+    G.player.y = b.y + Math.sin(b.a + Math.PI/2) * 26;
+    say('Hopped out');
+    return;
+  }
+  if (dist(G.player, b) < 64){ b.inBuggy = true; say('Buggy engaged'); }
+  else say('Get closer to the buggy');
+}
+
+function repair(){
+  const b = G.buggy;
+  if (dist(b, GARAGE) < GARAGE.r){
+    const s = stats(G.equipped);
+    b.hp = s.hp; b.wheel = s.dur; b.fuel = 300;
+    say('Buggy repaired and refueled');
+  } else say('Repair at the garage pad');
+}
+
+function toggleGarage(){
+  G.menu = !G.menu;
+  document.getElementById('garage').classList.toggle('open', G.menu);
+  if (G.menu) renderGarage();
+}
+
+function equip(uid){
+  const part = G.inv.find(p => p.uid === uid);
+  if (!part) return;
+  G.equipped[part.cat] = part;
+  const s = stats(G.equipped);
+  G.buggy.hp = Math.min(G.buggy.hp, s.hp);
+  G.buggy.wheel = Math.min(G.buggy.wheel, s.dur);
+  renderGarage();
+}
+window.equip = equip;
+window.toggleGarage = toggleGarage;
+
+function renderGarage(){
+  let html = '';
+  for (const key in CATS){
+    html += `<div class="cat"><strong>${CATS[key].name}</strong>`;
+    for (const p of G.inv.filter(p => p.cat === key)){
+      const eq = G.equipped[key] === p ? ' eq' : '';
+      const detail = Object.keys(p).filter(k => !['n','cat','uid','col','w'].includes(k))
+        .map(k => `${k} ${p[k]}`).join(' · ');
+      html += `<button class="item${eq}" onclick="equip(${p.uid})">${p.n} <span style="opacity:.7">(${detail})</span></button>`;
+    }
+    html += `</div>`;
+  }
+  document.getElementById('garageBody').innerHTML = html;
+  const s = stats(G.equipped);
+  document.getElementById('garageStats').innerHTML =
+    `Weight ${s.w} · Power ${s.pow} · Grip ${s.grip} · Wheel life ${s.dur} · Armor ${s.hp} · ` +
+    `Vision ${Math.round(s.vis*100)}% · Suspension ${Math.round(s.abs*100)}% · Fuel use ${s.fuel}`;
+}
+
+/* ---------- Simulation ---------- */
+function pickups(ent){
+  for (const c of crates){
+    if (!c.taken && dist(ent, c) < 24){
+      c.taken = true; G.inv.push(c.item);
+      say(`Found ${c.item.n} (${CATS[c.item.cat].name})`);
+    }
+  }
+  for (const f of cans){
+    if (!f.taken && dist(ent, f) < 24){
+      f.taken = true; G.buggy.fuel = Math.min(300, G.buggy.fuel + 120);
+      say('Fuel can: +120');
+    }
+  }
+}
+
+function collideRocks(ent, radius){
+  for (const r of rocks){
+    const dx = ent.x - r.x, dy = ent.y - r.y;
+    const d = Math.hypot(dx, dy), min = r.r + radius;
+    if (d < min && d > 0){
+      const push = min - d;
+      ent.x += dx/d * push; ent.y += dy/d * push;
+      return true;
+    }
+  }
+  return false;
+}
+
+function normAng(a){ while (a > Math.PI) a -= 2*Math.PI; while (a < -Math.PI) a += 2*Math.PI; return a; }
+
+function doWreck(why){
+  const s = stats(G.equipped);
+  const b = G.buggy;
+  G.wrecks++;
+  b.inBuggy = false; b.v = 0;
+  b.x = GARAGE.x; b.y = GARAGE.y + 40; b.a = 0;
+  b.hp = s.hp; b.wheel = s.dur; b.fuel = 150;
+  G.player.x = GARAGE.x + 30; G.player.y = GARAGE.y;
+  G.tracks = [];
+  say(why + ' Towed back to the garage.');
+}
+
+function fire(){
+  if (G.buggy.inBuggy){ say('Get out to shoot'); return; }
+  let best = null, bd = 260;
+  for (const a of aliens){
+    if (a.dead) continue;
+    const d = dist(a, G.player);
+    if (d < bd){ bd = d; best = a; }
+  }
+  if (!best){ say('No aliens in range'); return; }
+  best.hp--; best.stun = 0.25;
+  for (let i = 0; i < 6; i++) G.parts.push({x:best.x, y:best.y, vx:rnd(-90,90), vy:rnd(-90,90), life:0.4, max:0.4, col:'#bfffd0', r:rnd(1.5,3)});
+  if (best.hp <= 0){ best.dead = true; G.score += 50; say('Alien shot! +50'); }
+}
+
+function update(dt){
+  G.time += dt;
+  const b = G.buggy;
+  const s = stats(G.equipped);
+  const inp = readInput();
+
+  if (!b.inBuggy){
+    const len = Math.hypot(inp.x, inp.y) || 1;
+    const m = Math.min(1, Math.hypot(inp.x, inp.y));
+    G.player.x += inp.x/len * m * 160 * dt;
+    G.player.y += inp.y/len * m * 160 * dt;
+    if (m > 0.05){ G.player.walk += dt * 10; G.player.face = Math.atan2(inp.y, inp.x); }
+    G.player.x = clamp(G.player.x, 10, WORLD-10);
+    G.player.y = clamp(G.player.y, 10, WORLD-10);
+    collideRocks(G.player, G.player.r);
+    pickups(G.player);
+  } else {
+    const zone = zoneAt(b.x);
+    const mag = Math.hypot(inp.x, inp.y);
+    let throttle = false, brake = false;
+    if (mag > 0.3){
+      const target = Math.atan2(inp.y, inp.x);
+      const diff = normAng(target - b.a);
+      const rate = 3.2 * (0.35 + 0.65 * Math.min(1, Math.abs(b.v) / 150));
+      b.a += clamp(diff, -rate * dt, rate * dt);
+      if (Math.abs(diff) < 1.9) throttle = b.fuel > 0; else brake = true;
+    }
+    b.throttle = throttle; b.braking = brake;
+    const shortfall = Math.max(0, zone.grip - s.grip);
+    const traction = 1 - Math.min(0.6, shortfall*0.12);
+    const maxV = clamp(s.pow/(s.w+30)*450, 450, 2100) * zone.speed * traction * Math.min(1, mag + 0.2);
+    if (throttle) b.v += (maxV - b.v) * 0.9 * dt;
+    else if (brake) b.v += (-80 - b.v) * (b.v > 0 ? 2.5 : 0.5) * dt * (b.v > 0 ? 1 : 0.6);
+    else b.v += (0 - b.v) * 0.6 * dt;
+
+
+    b.x += Math.cos(b.a) * b.v * dt;
+    b.y += Math.sin(b.a) * b.v * dt;
+    b.x = clamp(b.x, 10, WORLD-10);
+    b.y = clamp(b.y, 10, WORLD-10);
+
+    if (collideRocks(b, 14)){
+      const impact = Math.abs(b.v);
+      if (impact > 60){
+        b.hp -= impact * 0.08 * (1 - s.abs*0.4);
+        say('Slammed a rock!');
+        for (let i = 0; i < 8; i++) G.parts.push({x:b.x, y:b.y, vx:rnd(-60,60), vy:rnd(-60,60), life:0.6, max:0.6, col:'#d8c8a0', r:rnd(1.5,3)});
+      }
+      b.v *= 0.3;
+    }
+
+    const speed = Math.abs(b.v);
+    b.spin += b.v * dt / 6;
+    b.wheel -= (speed/200) * (shortfall*0.6 + zone.rough) * (1 - s.abs*0.4) * 2 * dt;
+    b.hp -= zone.rough * (speed/300) * (1 - s.abs) * 4 * dt;
+    b.fuel = Math.max(0, b.fuel - speed * 0.01 * s.fuel * dt);
+
+    if (speed > 40 && Math.random() < 0.6){
+      G.parts.push({x:b.x - Math.cos(b.a)*14 + rnd(-6,6), y:b.y - Math.sin(b.a)*14 + rnd(-6,6),
+        vx:rnd(-10,10), vy:rnd(-10,10), life:0.9, max:0.9, col:zone.dk, r:rnd(3,6)});
+    }
+    if (b.throttle && Math.random() < 0.5){
+      G.parts.push({x:b.x - Math.cos(b.a)*18, y:b.y - Math.sin(b.a)*18, vx:rnd(-10,10), vy:rnd(-30,-10), life:0.8, max:0.8, col:'#bbb', r:rnd(2,4), smoke:true});
+    }
+    if (speed > 20 && (G.tracks.length === 0 || dist(G.tracks[G.tracks.length-1], b) > 6)){
+      G.tracks.push({x:b.x, y:b.y, a:b.a});
+      if (G.tracks.length > 160) G.tracks.shift();
+    }
+
+    for (const m of mines){
+      if (m.done) continue;
+      if (dist(b, m) < 18){
+        m.done = true;
+        const avoid = Math.min(0.9, s.vis * 3);
+        if (Math.random() < avoid){
+          say('Camera spotted a mine. Swerved clear.');
+        } else {
+          b.hp -= 35 * (1 - s.abs*0.3);
+          b.wheel -= 25;
+          say('Mine hit!');
+          for (let i = 0; i < 16; i++) G.parts.push({x:m.x, y:m.y, vx:rnd(-120,120), vy:rnd(-120,120), life:0.7, max:0.7, col:'#ff9a3a', r:rnd(2,5)});
+        }
+      }
+    }
+    pickups(b);
+
+    if (dist(b, PROVING) < PROVING.r && !G.proved){
+      G.proved = true;
+      const bonus = Math.round(1000 + b.hp + b.wheel + b.fuel/3);
+      G.score += bonus;
+      say(`Proving ground cleared! +${bonus} points`);
+    }
+
+    if (b.hp <= 0 || b.wheel <= 0 || (b.fuel <= 0 && speed < 5)){
+      const why = b.hp <= 0 ? 'Buggy wrecked' : b.wheel <= 0 ? 'Wheels gone' : 'Out of fuel';
+      G.wrecks++;
+      b.inBuggy = false; b.v = 0;
+      b.x = GARAGE.x; b.y = GARAGE.y + 40; b.a = 0;
+      b.hp = s.hp; b.wheel = s.dur; b.fuel = 150;
+      G.player.x = GARAGE.x + 50; G.player.y = GARAGE.y;
+      G.tracks = [];
+      say(`${why}. Towed back to the garage.`);
+    }
+  }
+
+  if (b.inBuggy){ G.player.x = b.x; G.player.y = b.y; }
+
+  for (const m of mines){
+    if (!m.done && dist(b, m) < s.vis * 900) m.revealed = true;
+  }
+
+  for (const a of aliens){
+    if (a.dead) continue;
+    a.cd = Math.max(0, a.cd - dt);
+    a.stun = Math.max(0, a.stun - dt);
+    a.bob += dt * 8;
+    const onFoot = !b.inBuggy;
+    const d = onFoot ? dist(a, G.player) : dist(a, b);
+    if (a.stun > 0){
+      a.vx *= (1 - 4*dt); a.vy *= (1 - 4*dt);
+    } else if (onFoot && d < 220){
+      const ang = Math.atan2(G.player.y - a.y, G.player.x - a.x);
+      a.vx = Math.cos(ang) * 75; a.vy = Math.sin(ang) * 75;
+    } else {
+      a.wt -= dt;
+      if (a.wt <= 0){ a.wt = rnd(1, 3); const ang = rnd(0, 6.283); a.vx = Math.cos(ang)*40; a.vy = Math.sin(ang)*40; }
+    }
+    a.x = clamp(a.x + a.vx * dt, 10, WORLD-10);
+    a.y = clamp(a.y + a.vy * dt, 10, WORLD-10);
+    if (onFoot){
+      if (d < 16){ doWreck('An alien got you on foot!'); break; }
+    } else if (d < 26 && a.cd <= 0){
+      const rel = normAng(Math.atan2(a.y - b.y, a.x - b.x) - b.a);
+      if (Math.abs(rel) < Math.PI/3 && b.v > 20){
+        a.dead = true; G.score += 25; say('Squashed an alien! +25');
+        for (let i = 0; i < 10; i++) G.parts.push({x:a.x, y:a.y, vx:rnd(-120,120), vy:rnd(-120,120), life:0.6, max:0.6, col:'#5cff7a', r:rnd(2,4)});
+      } else {
+        b.hp -= 12 * (1 - s.abs*0.4);
+        a.cd = 1; a.stun = 0.5;
+        a.vx = (a.x - b.x) * 6; a.vy = (a.y - b.y) * 6;
+        say('An alien hit your buggy!');
+      }
+    }
+  }
+
+  G.alienT = (G.alienT === undefined ? 0 : G.alienT) - dt;
+  if (G.alienT <= 0){
+    G.alienT = 2.5;
+    const dead = aliens.find(a => a.dead);
+    if (dead){
+      let x, y, tries = 0;
+      do {
+        x = rnd(80, WORLD-80); y = rnd(80, WORLD-80); tries++;
+      } while (tries < 30 && (dist({x, y}, GARAGE) < 260 || dist({x, y}, G.player) < 300));
+      Object.assign(dead, {x, y, vx:0, vy:0, hp:2, cd:0, stun:0, wt:rnd(0, 2), dead:false});
+    }
+  }
+
+  for (const p of G.parts){
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.92; p.vy *= 0.92;
+    if (p.smoke){ p.r += dt * 6; }
+    p.life -= dt;
+  }
+  G.parts = G.parts.filter(p => p.life > 0);
+
+  if (G.msgT > 0) G.msgT -= dt;
+  if (G.helpT > 0) G.helpT -= dt;
+}
+
+/* ---------- Drawing ---------- */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let dpr = 1, cw = 0, ch = 0, zoom = 1;
+
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cw = window.innerWidth; ch = window.innerHeight;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  zoom = clamp(Math.min(cw / 700, ch / 420), 0.6, 2.4);
+  patterns = tiles.map(t => ctx.createPattern(t, 'repeat'));
+  document.getElementById('help').textContent = cw < 700 || 'ontouchstart' in window
+    ? 'Left stick: move / drive · E: get in or out · R: repair · G: garage'
+    : 'WASD / arrows move · E get in/out · R repair · G garage · Walk over crates for parts';
+}
+addEventListener('resize', resize);
+
+function drawGround(c){
+  for (let i = 0; i < 4; i++){
+    c.fillStyle = patterns[i];
+    c.fillRect(ZX[i], 0, ZX[i+1]-ZX[i], WORLD);
+  }
+  // soft seams between zones
+  for (let i = 1; i < 4; i++){
+    const g = c.createLinearGradient(ZX[i]-40, 0, ZX[i]+40, 0);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.fillRect(ZX[i]-40, 0, 80, WORLD);
+  }
+}
+
+function drawTracks(c){
+  c.lineWidth = 3;
+  for (let i = 1; i < G.tracks.length; i++){
+    const t = G.tracks[i], p = G.tracks[i-1];
+    const alpha = i / G.tracks.length * 0.35;
+    c.strokeStyle = `rgba(20,14,8,${alpha})`;
+    c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(t.x, t.y); c.stroke();
+  }
+}
+
+function drawRocks(c){
+  for (const r of rocks){
+    c.fillStyle = 'rgba(0,0,0,.35)';
+    c.beginPath(); c.ellipse(r.x+r.r*0.35, r.y+r.r*0.4, r.r*1.05, r.r*0.8, 0, 0, 7); c.fill();
+    const g = c.createRadialGradient(r.x-r.r*0.35, r.y-r.r*0.35, r.r*0.1, r.x, r.y, r.r);
+    g.addColorStop(0, '#6a6055'); g.addColorStop(0.7, '#3d362e'); g.addColorStop(1, '#2a241d');
+    c.fillStyle = g;
+    c.beginPath(); c.arc(r.x, r.y, r.r, 0, 7); c.fill();
+  }
+}
+
+function drawGarage(c){
+  const gx = GARAGE.x, gy = GARAGE.y;
+  const pad = c.createRadialGradient(gx, gy, 10, gx, gy, GARAGE.r);
+  pad.addColorStop(0, 'rgba(143,191,90,.35)'); pad.addColorStop(1, 'rgba(143,191,90,.05)');
+  c.fillStyle = pad; c.beginPath(); c.arc(gx, gy, GARAGE.r, 0, 7); c.fill();
+  c.strokeStyle = 'rgba(143,191,90,.8)'; c.lineWidth = 3; c.setLineDash([12, 8]);
+  c.beginPath(); c.arc(gx, gy, GARAGE.r, 0, 7); c.stroke(); c.setLineDash([]);
+  c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(gx-64, gy-86, 128, 66);
+  const wall = c.createLinearGradient(0, gy-90, 0, gy-24);
+  wall.addColorStop(0, '#8a7560'); wall.addColorStop(1, '#5a4a3a');
+  c.fillStyle = wall; c.fillRect(gx-60, gy-90, 120, 60);
+  c.fillStyle = '#3a2e24'; c.fillRect(gx-60, gy-96, 120, 8);
+  c.fillStyle = '#2a1f17'; c.fillRect(gx-24, gy-62, 48, 32);
+  c.strokeStyle = '#1a140e'; c.lineWidth = 2;
+  for (let i = 0; i < 4; i++){ c.beginPath(); c.moveTo(gx-24, gy-62+i*8); c.lineTo(gx+24, gy-62+i*8); c.stroke(); }
+  const flick = 0.75 + Math.sin(G.time*7) * 0.1 + (Math.random() < 0.02 ? -0.4 : 0);
+  c.shadowColor = '#8fbf5a'; c.shadowBlur = 14;
+  c.fillStyle = `rgba(143,191,90,${flick})`; c.font = 'bold 15px system-ui';
+  c.fillText('GARAGE', gx-30, gy-102);
+  c.shadowBlur = 0;
+}
+
+function drawProving(c){
+  const px = PROVING.x, py = PROVING.y, R = PROVING.r;
+  c.fillStyle = 'rgba(209,73,75,.12)';
+  c.beginPath(); c.arc(px, py, R, 0, 7); c.fill();
+  for (let i = 0; i < 16; i++){
+    c.fillStyle = i % 2 ? 'rgba(233,220,195,.5)' : 'rgba(20,17,13,.5)';
+    c.beginPath(); c.moveTo(px, py);
+    c.arc(px, py, R, i*Math.PI/8, (i+1)*Math.PI/8); c.fill();
+  }
+  c.strokeStyle = '#d1494b'; c.lineWidth = 4;
+  c.beginPath(); c.arc(px, py, R, 0, 7); c.stroke();
+  c.fillStyle = '#e9dcc3'; c.font = 'bold 13px system-ui';
+  c.fillText('PROVING GROUND', px-66, py-R-10);
+}
+
+function drawCrates(c){
+  for (const f of cans){
+    if (f.taken) continue;
+    c.fillStyle = 'rgba(0,0,0,.35)'; c.beginPath(); c.ellipse(f.x+3, f.y+4, 6, 4, 0, 0, 7); c.fill();
+    c.fillStyle = '#4fbf4f'; c.fillRect(f.x-5, f.y-6, 10, 12);
+    c.fillStyle = '#2a8a2a'; c.fillRect(f.x-5, f.y-6, 10, 3);
+    c.fillStyle = '#fff'; c.font = 'bold 9px system-ui'; c.fillText('F', f.x-3, f.y+3);
+  }
+  for (const cr of crates){
+    if (cr.taken) continue;
+    c.fillStyle = 'rgba(0,0,0,.4)'; c.fillRect(cr.x-5, cr.y-4, 16, 16);
+    c.fillStyle = cr.item.col; c.fillRect(cr.x-8, cr.y-8, 16, 16);
+    c.fillStyle = 'rgba(0,0,0,.35)';
+    for (let i = -6; i <= 6; i += 4) c.fillRect(cr.x+i-1, cr.y-8, 2, 16);
+    c.strokeStyle = '#111'; c.lineWidth = 1.5; c.strokeRect(cr.x-8, cr.y-8, 16, 16);
+    c.fillStyle = 'rgba(255,255,255,.35)'; c.fillRect(cr.x-7, cr.y-7, 4, 2);
+  }
+}
+
+function drawMines(c){
+  for (const m of mines){
+    if (m.done) continue;
+    if (!m.revealed){
+      c.fillStyle = 'rgba(0,0,0,.12)'; c.beginPath(); c.ellipse(m.x, m.y, 9, 6, 0.3, 0, 7); c.fill();
+      continue;
+    }
+    const pulse = 0.6 + Math.sin(G.time*5 + m.x) * 0.4;
+    c.strokeStyle = `rgba(209,73,75,${pulse})`; c.lineWidth = 2;
+    c.beginPath(); c.arc(m.x, m.y, 9, 0, 7); c.stroke();
+    c.fillStyle = `rgba(209,73,75,${pulse})`;
+    c.beginPath(); c.arc(m.x, m.y, 3, 0, 7); c.fill();
+  }
+}
+
+function drawAliens(c){
+  for (const a of aliens){
+    if (a.dead) continue;
+    const wob = Math.sin(a.bob) * 2;
+    c.fillStyle = 'rgba(0,0,0,.4)'; c.beginPath(); c.ellipse(a.x+2, a.y+5, 10, 5, 0, 0, 7); c.fill();
+    c.strokeStyle = '#2a8a3a'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(a.x-6, a.y+6); c.lineTo(a.x-9, a.y+12+wob); c.moveTo(a.x+6, a.y+6); c.lineTo(a.x+9, a.y+12-wob); c.stroke();
+    c.fillStyle = a.stun > 0 ? '#dfffe9' : '#5cff7a';
+    c.beginPath(); c.ellipse(a.x, a.y + wob*0.3, 10, 9, 0, 0, 7); c.fill();
+    c.fillStyle = '#0a2a10';
+    c.beginPath(); c.arc(a.x-4, a.y-2, 2.2, 0, 7); c.arc(a.x+4, a.y-2, 2.2, 0, 7); c.fill();
+  }
+}
+
+function drawPlayer(c){
+  const p = G.player;
+  const step = Math.sin(p.walk) * (Math.hypot(p.vx||0, p.vy||0) > 0 ? 1 : 0.3);
+  c.fillStyle = 'rgba(0,0,0,.4)'; c.beginPath(); c.ellipse(p.x+2, p.y+4, 11, 6, 0, 0, 7); c.fill();
+  c.save();
+  c.translate(p.x, p.y);
+  c.rotate((p.face || 0) + Math.PI/2);
+  c.fillStyle = '#5d6672';
+  for (const [x, y, s] of [[-4,-3,step],[4,-3,-step],[-4,5,-step],[4,5,step]]){
+    c.beginPath(); c.ellipse(x, y + s*1.2, 2.4, 3.4, 0, 0, 7); c.fill();
+  }
+  c.strokeStyle = '#eef2f5'; c.lineWidth = 3;
+  c.beginPath(); c.arc(7, 6, 4, Math.PI*0.8, Math.PI*2.1); c.stroke();
+  c.fillStyle = '#8f98a4';
+  c.beginPath(); c.ellipse(0, 1, 7, 9, 0, 0, 7); c.fill();
+  c.fillStyle = '#eef2f5';
+  c.beginPath(); c.ellipse(0, -1, 4, 6, 0, 0, 7); c.fill();
+  c.fillStyle = '#8f98a4';
+  c.beginPath(); c.arc(0, -8, 6, 0, 7); c.fill();
+  c.fillStyle = '#5d6672';
+  c.beginPath(); c.moveTo(-5,-11); c.lineTo(-6,-18); c.lineTo(-1,-13); c.fill();
+  c.beginPath(); c.moveTo(5,-11); c.lineTo(6,-18); c.lineTo(1,-13); c.fill();
+  c.fillStyle = '#2b2f36';
+  c.beginPath(); c.ellipse(0, -5, 4.5, 3, 0, 0, 7); c.fill();
+  c.fillStyle = '#7fd3ff';
+  c.beginPath(); c.arc(-2.5, -8, 1.4, 0, 7); c.arc(2.5, -8, 1.4, 0, 7); c.fill();
+  c.fillStyle = '#111';
+  c.beginPath(); c.arc(0, -12.5, 1.5, 0, 7); c.fill();
+  c.restore();
+}
+
+function drawBuggy(c, b, eq){
+  const armorCol = eq.armor.col, bodyCol = eq.engine.col, wheelCol = eq.wheels.col;
+  // shadow
+  c.fillStyle = 'rgba(0,0,0,.4)';
+  c.beginPath(); c.ellipse(b.x+4, b.y+6, 24, 15, b.a, 0, 7); c.fill();
+  c.save();
+  c.translate(b.x, b.y); c.rotate(b.a);
+  // wheels with tread
+  for (const [x, y] of [[-14,-12],[14,-12],[-14,12],[14,12]]){
+    c.save(); c.translate(x, y); c.rotate(b.spin);
+    c.fillStyle = '#151515'; c.fillRect(-6, -4, 12, 8);
+    c.fillStyle = wheelCol; c.fillRect(-4, -2.5, 8, 5);
+    c.fillStyle = '#000'; c.fillRect(-1, -4, 2, 8);
+    c.restore();
+  }
+  // chassis
+  const body = c.createLinearGradient(0, -10, 0, 10);
+  body.addColorStop(0, shade(bodyCol, 1.25)); body.addColorStop(1, shade(bodyCol, 0.7));
+  c.fillStyle = body;
+  c.beginPath(); c.roundRect(-17, -10, 34, 20, 4); c.fill();
+  // armor plating
+  const frac = clamp(b.hp / stats(G.equipped).hp, 0, 1);
+  c.globalAlpha = 0.6 + frac * 0.4;
+  c.fillStyle = armorCol;
+  c.beginPath(); c.roundRect(-15, -8, 22, 16, 2); c.fill();
+  c.globalAlpha = 1;
+  c.fillStyle = 'rgba(0,0,0,.5)';
+  for (const [x, y] of [[-12,-6],[4,-6],[-12,6],[4,6]]){ c.beginPath(); c.arc(x, y, 1, 0, 7); c.fill(); }
+  // roof cage
+  c.strokeStyle = '#1a1a1a'; c.lineWidth = 2;
+  c.strokeRect(-6, -7, 12, 14);
+  c.beginPath(); c.moveTo(-6, -7); c.lineTo(-2, -2); c.moveTo(6, 7); c.lineTo(2, 2); c.stroke();
+  // seat
+  c.fillStyle = '#2a1f17'; c.fillRect(-4, -4, 7, 8);
+  // exhaust
+  c.fillStyle = '#333'; c.fillRect(-18, 6, 4, 3);
+  // headlights
+  c.fillStyle = '#ffe98a';
+  c.beginPath(); c.arc(17, -6, 2, 0, 7); c.arc(17, 6, 2, 0, 7); c.fill();
+  if (b.inBuggy){
+    const g = c.createRadialGradient(17, 0, 2, 40, 0, 40);
+    g.addColorStop(0, 'rgba(255,240,170,.25)'); g.addColorStop(1, 'rgba(255,240,170,0)');
+    c.fillStyle = g; c.beginPath(); c.moveTo(18, -4); c.lineTo(60, -20); c.lineTo(60, 20); c.lineTo(18, 4); c.fill();
+  }
+  // brake lights
+  c.fillStyle = b.braking ? '#ff3a3a' : '#7a2020';
+  c.fillRect(-18, -8, 2, 4); c.fillRect(-18, 4, 2, 4);
+  // damage outline
+  c.strokeStyle = frac > 0.4 ? 'rgba(143,191,90,.6)' : 'rgba(209,73,75,.9)';
+  c.lineWidth = 1.5;
+  c.beginPath(); c.roundRect(-17, -10, 34, 20, 4); c.stroke();
+  c.restore();
+}
+
+function shade(hex, f){
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (hex.length === 4){
+    r = parseInt(hex[1]+hex[1], 16); g = parseInt(hex[2]+hex[2], 16); b = parseInt(hex[3]+hex[3], 16);
+  }
+  r = clamp(Math.round(r*f), 0, 255); g = clamp(Math.round(g*f), 0, 255); b = clamp(Math.round(b*f), 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawParticles(c){
+  for (const p of G.parts){
+    const a = clamp(p.life / p.max, 0, 1);
+    c.fillStyle = p.smoke ? `rgba(200,200,200,${a*0.5})` : p.col;
+    c.globalAlpha = p.smoke ? a*0.5 : a;
+    c.beginPath(); c.arc(p.x, p.y, p.r, 0, 7); c.fill();
+  }
+  c.globalAlpha = 1;
+}
+
+function drawHUD(){
+  const s = stats(G.equipped);
+  const b = G.buggy;
+  const zone = zoneAt(b.x);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const pw = Math.min(260, cw - 16);
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.beginPath(); ctx.roundRect(8, 8, pw, 110, 8); ctx.fill();
+  ctx.fillStyle = '#e9dcc3'; ctx.font = '13px system-ui';
+  ctx.fillText(`Zone: ${zone.n}`, 18, 28);
+  bar(18, 38, pw-20, 'Armor', b.hp, s.hp, '#d1494b');
+  bar(18, 58, pw-20, 'Wheels', b.wheel, s.dur, '#c9a86a');
+  bar(18, 78, pw-20, 'Fuel', b.fuel, 300, '#4fbf4f');
+  ctx.fillText(`Score ${G.score}   Wrecks ${G.wrecks}`, 18, 108);
+
+  if (G.msgT > 0){
+    ctx.font = '15px system-ui';
+    const tw = ctx.measureText(G.msg).width + 22;
+    ctx.fillStyle = 'rgba(0,0,0,.65)';
+    ctx.beginPath(); ctx.roundRect(cw/2 - tw/2, ch - 150, tw, 30, 8); ctx.fill();
+    ctx.fillStyle = '#e9dcc3';
+    ctx.fillText(G.msg, cw/2 - tw/2 + 11, ch - 130);
+  }
+  if (!b.inBuggy && dist(G.player, b) < 64){
+    ctx.font = '14px system-ui'; ctx.fillStyle = '#e9dcc3';
+    ctx.fillText('E: get in', cw/2 - 30, ch/2 - 40);
+  }
+  document.getElementById('bE').classList.toggle('on', b.inBuggy);
+  if (G.helpT <= 0) document.getElementById('help').style.display = 'none';
+}
+
+function bar(x, y, w, label, val, max, col){
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  ctx.fillRect(x + 62, y - 9, w - 62, 8);
+  ctx.fillStyle = col;
+  ctx.fillRect(x + 62, y - 9, (w - 62) * clamp(val / max, 0, 1), 8);
+  ctx.fillStyle = '#e9dcc3';
+  ctx.fillText(label, x, y);
+}
+
+function draw(){
+  const b = G.buggy;
+  const focus = b.inBuggy ? b : G.player;
+  const s = stats(G.equipped);
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0b0a08';
+  ctx.fillRect(0, 0, cw, ch);
+
+  const k = dpr * zoom;
+  ctx.setTransform(k, 0, 0, k, dpr * (cw/2 - focus.x*zoom), dpr * (ch/2 - focus.y*zoom));
+  ctx.font = 'bold 13px system-ui';
+  drawGround(ctx);
+  drawTracks(ctx);
+  drawRocks(ctx);
+  drawGarage(ctx);
+  drawProving(ctx);
+  drawCrates(ctx);
+  drawMines(ctx);
+  drawAliens(ctx);
+  drawParticles(ctx);
+  if (!b.inBuggy) drawPlayer(ctx);
+  drawBuggy(ctx, b, G.equipped);
+  if (b.inBuggy){
+    // driver visible inside: no separate sprite needed
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // vignette
+  const vg = ctx.createRadialGradient(cw/2, ch/2, Math.min(cw,ch)*0.35, cw/2, ch/2, Math.max(cw,ch)*0.75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, cw, ch);
+
+  // low-health tint
+  const frac = clamp(b.hp / s.hp, 0, 1);
+  if (frac < 0.3){
+    ctx.fillStyle = `rgba(160,20,20,${(0.3-frac)*0.6})`; ctx.fillRect(0, 0, cw, ch);
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawHUD();
+}
+
+let last = performance.now();
+function frame(t){
+  const dt = Math.min(0.05, (t - last) / 1000);
+  last = t;
+  if (!G.menu) update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
