@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Floofy Tech Startup Tycoon</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap">
+<style>
+:root{--bg:#e9f0f7;--pn:#fff;--ink:#14202e;--mut:#5d6f84;--ln:#cfdae6;--acc:#2f7bd9;--good:#238a52;--bad:#d6453b;--dev:#cfe2f8;--brk:#d4eed9;--srv:#d9dce2;--emp:#dfe6ee;color-scheme:light;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1722;--pn:#162231;--ink:#e6eef7;--mut:#8fa3b8;--ln:#27384c;--acc:#5a9cf0;--good:#4cc27f;--bad:#ff6b5f;--dev:#1f3a5c;--brk:#1f4a38;--srv:#33383f;--emp:#1a2634;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1722;--pn:#162231;--ink:#e6eef7;--mut:#8fa3b8;--ln:#27384c;--acc:#5a9cf0;--good:#4cc27f;--bad:#ff6b5f;--dev:#1f3a5c;--brk:#1f4a38;--srv:#33383f;--emp:#1a2634;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:auto}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:10px}
+h1{font:700 22px "Fredoka",system-ui,sans-serif;margin:0 0 8px}
+#top{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:8px 12px;margin-bottom:10px}
+#top b{font-family:"Fredoka",system-ui,sans-serif;font-size:16px}
+.wrap{display:grid;grid-template-columns:auto minmax(260px,1fr);gap:12px;align-items:start}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.box{background:var(--pn);border:1px solid var(--ln);border-radius:10px;padding:10px}
+#grid{--c:min(40px,calc((100vw - 48px)/12));display:grid;grid-template-columns:repeat(12,var(--c));gap:1px;background:var(--ln);border:1px solid var(--ln);width:max-content;max-width:100%;user-select:none;touch-action:manipulation}
+.t{width:var(--c);height:var(--c);background:var(--emp);display:grid;place-items:center;font-size:calc(var(--c)*.55);cursor:pointer}
+.t.dev{background:var(--dev)}.t.lab{background:color-mix(in srgb,#9b6fe0 28%,var(--emp))}.t.brk{background:var(--brk)}.t.srv{background:var(--srv)}
+.t:hover{outline:2px solid var(--acc);outline-offset:-2px}
+.tools{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+button{font:inherit;color:var(--ink);background:var(--pn);border:1px solid var(--ln);border-radius:7px;padding:5px 9px;cursor:pointer}
+button:hover{border-color:var(--acc)}button:focus-visible{outline:2px solid var(--acc)}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+button:disabled{opacity:.5;cursor:not-allowed}
+.card{border-top:1px solid var(--ln);padding:8px 0}.card:first-of-type{border-top:0}
+.bar{height:7px;background:var(--emp);border-radius:4px;overflow:hidden;margin:4px 0}.bar i{display:block;height:100%;background:var(--good)}.bar.r i{background:var(--bad)}
+small,.m{color:var(--mut)}
+h2{font:700 16px "Fredoka",system-ui,sans-serif;margin:0 0 6px}
+#log p{margin:3px 0;font-size:13px}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;padding:20px}
+#ov.s{display:grid}#ov div{background:var(--pn);border-radius:12px;padding:22px;max-width:380px;text-align:center}
+.side{display:grid;gap:12px}
+</style></head><body>
+<h1>🐾 Floofy Tech Startup Tycoon</h1>
+<div id="top"></div>
+<div class="wrap">
+ <div class="box"><h2>Your office</h2><div id="tb" class="tools"></div><div id="grid"></div><p class="m" style="margin:8px 0 0">Paint rooms first, then drop desks and gear inside them. Developers only work at a desk.</p></div>
+ <div class="side"><div class="box" id="prod"></div><div class="box" id="staff"></div><div class="box" id="riv"></div><div class="box" id="log"></div></div>
+</div>
+<div id="ov"><div id="ovt"></div></div>
+<script>
+const W=12,H=8,GOAL=85000;
+const ROOMS={dev:{n:"Dev room",e:"💻"},brk:{n:"Break room",e:"🛋️"},lab:{n:"R&D lab",e:"🔬"},srv:{n:"Server room",e:"🗄️"}};
+const ITEMS={desk:{n:"Desk",e:"🖥️",c:250,r:"dev"},board:{n:"Whiteboard",e:"📋",c:150,r:"dev"},rack:{n:"Server rack",e:"🗄️",c:600,r:"srv"},treat:{n:"Treat bowl",e:"🦴",c:120,r:"brk"},bed:{n:"Husky bed",e:"🛏️",c:200,r:"brk"},plant:{n:"Plant",e:"🪴",c:60,r:"*"},bench:{n:"Lab bench",e:"🧪",c:400,r:"lab"}};
+const PRODUCTS=[
+{id:"log",n:"Floof PrintnLog",e:"🖨️",pts:50,rev:120,rival:"Macrohard Changelog 365",rp:60},
+{id:"pen",n:"Dogpen",e:"📝",pts:150,rev:350,rival:"Macrohard Wurd Office 366",rp:90},
+{id:"team",n:"Floofteam1",e:"🏫",pts:220,rev:500,rival:"Macrohard Teamz",rp:100},
+{id:"os",n:"FloofOS",e:"🐶",pts:450,rev:1100,rival:"Windoze 12",rp:140},
+{id:"cell",n:"Floofcell",e:"📱",pts:600,rev:1500,rival:"Macrohard Surface Phone-ish",rp:130},
+{id:"pack",n:"DOGPACK",e:"🎮",pts:800,rev:2200,rival:"Xbux Series Z",rp:150}];
+const COMPS=[{n:"Macrohard",e:"🪟",f:["os","team","pen"],t:"Bundles everything, extinguishes formats"},{n:"Pear Inc.",e:"🍐",f:["cell","pack","os"],t:"Pricey, sleek, very sure of itself"},{n:"Googol",e:"🔍",f:["log","pen","team"],t:"Free products it may cancel later"},{n:"Amazin’",e:"📦",f:["os","pack","cell"],t:"Undercuts everyone on price"}];
+const RV={log:"Macrohard Changelog 365, Googol Changes",pen:"Macrohard Wurd Office 366, Googol Workspace",team:"Macrohard Teamz, Googol Meetup",os:"Windoze 12, PearOS, Amazin’ Fire OS",cell:"Macrohard Surface Phone-ish, Pear iPhoney",pack:"Xbux Series Z, Pear Arcade+, Amazin’ Luna Box"};
+const TIERS=[{n:"Junior",sk:1,c:400},{n:"Mid-level",sk:2,c:900},{n:"Senior",sk:3,c:1800}];
+const NAMES=["Biscuit","Waffles","Pixel","Nibbles","Sprocket","Mochi","Taz","Pretzel","Byte","Noodle","Clover","Juno"];
+const $=s=>document.querySelector(s),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),$$=v=>"$"+Math.round(v).toLocaleString();
+let S,tool="dev",speed=1,paused=false,over="",timer,seatedN=0,cache={};
+const cost=(p,u)=>u?Math.round(p.pts*.5):p.pts;
+const eq=s=>(s.q+4*(Object.keys(S.ship).length-1))*(S.sub!=null?.6:1);
+function fresh(){const grid=Array.from({length:W*H},()=>({r:null,i:null}));
+ for(let y=1;y<=2;y++)for(let x=1;x<=3;x++)grid[y*W+x].r="dev";
+ grid[W+1].i="desk";grid[W+3].i="desk";
+ return{day:1,cash:5000,debt:0,grid,devs:[{n:"Founder",sk:2}],ship:{log:{v:1,q:55}},prog:{},cur:"pen:n",mk:0,rp:Object.fromEntries(PRODUCTS.map(p=>[p.id,p.rp])),log:["Welcome to Floofy Tech! PrintnLog is already on sale and paying the bills. Grow the office, hire developers, and ship Dogpen next."]}}
+const thr=c=>c.f.reduce((a,i)=>a+S.rp[i],0)/c.f.length,topRival=()=>COMPS.reduce((a,c)=>thr(c)>thr(a)?c:a);
+function say(m){S.log.unshift("Day "+S.day+": "+m);S.log.length=Math.min(S.log.length,7)}
+function calc(){const c={desk:0,board:0,rack:0,treat:0,bed:0,plant:0,bench:0,tiles:0};
+ S.grid.forEach(g=>{if(g.r)c.tiles++;if(g.i)c[g.i]++});
+ const n=S.devs.length,seated=Math.min(n,c.desk),sd=S.devs.slice(0,seated);
+ const morale=clamp(55+4*Math.min(c.plant,5)+6*Math.min(c.treat,3)+8*Math.min(c.bed,2)-6*Math.max(0,n-c.desk),0,100);
+ const mult=(.55+morale/200)*(1+.1*Math.min(c.board,3)+.15*Math.min(c.rack,2));
+ const skills=sd.reduce((a,d)=>a+d.sk,0);
+ let rev=0;PRODUCTS.forEach(p=>{const s=S.ship[p.id];if(s)rev+=p.rev*eq(s)/(eq(s)+S.rp[p.id])*(S.mk>0?1.3:1)*(S.pw>0?.8:1)*(S.sub!=null?1.25:1)});
+ return{c,n,seated,morale,mult,pts:skills*mult,sal:S.devs.reduce((a,d)=>a+13*d.sk,0)+c.tiles*.75-(S.sub!=null?120:0),rev,avg:seated?skills/seated:1}}
+function tick(){if(over||paused)return;const d=calc();S.day++;S.cash+=d.rev-d.sal-(S.debt||0)*.0008;S.devs.slice(0,d.seated).forEach(v=>{v.xp=(v.xp||0)+1;if(v.sk<5&&v.xp>=45*v.sk){v.sk++;v.xp=0;say(`${v.n} levelled up to skill ${v.sk}!`)}});if(S.mk>0)S.mk--;if(S.pw>0)S.pw--;
+ PRODUCTS.forEach(p=>S.rp[p.id]+=.07+Math.random()*.09+S.day/10000);
+ if(S.cur){const[id,m]=S.cur.split(":"),p=PRODUCTS.find(x=>x.id==id),up=m=="u";
+  S.prog[S.cur]=(S.prog[S.cur]??cost(p,up))-d.pts;
+  if(S.prog[S.cur]<=0){const old=S.ship[id];
+   S.ship[id]=up?{v:old.v+1,q:old.q+12+4*Math.min(d.c.bench,4)}:{v:1,q:Math.round(35+d.avg*12+d.morale/5+4*Math.min(d.c.bench,4))};
+   delete S.prog[S.cur];S.cur=null;say(up?`${p.n} v${S.ship[id].v} shipped!`:`${p.n} launched! Take that, ${p.rival}.`)}}
+ if(Math.random()<.065)event();
+ if(S.cash-(S.debt||0)>=GOAL&&S.sub==null)over="win";else if(S.cash<-1500)over="lose";
+ render()}
+function event2(){const r=Math.random(),hit=(ids,n)=>ids.forEach(i=>S.rp[i]=Math.max(25,S.rp[i]+n));
+ if(r<.2){hit(["log","pen","team"],18);say("Googol launches a free “Googol Workspace Lite” and hints it might be discontinued someday. Office rival power +18.")}
+ else if(r<.4){hit(["cell","pack","os"],20);say("Pear Inc. unveils a $2,000 glass rectangle. People queue overnight. Hardware rival power +20.")}
+ else if(r<.55){S.pw=20;say("Amazin’ starts a price war. Your revenue is cut 20% for 20 days.")}
+ else if(r<.7){hit(["log","pen","team"],-20);say("Googol quietly shuts down a competing product. Office rival power −20.")}
+ else if(r<.82&&S.devs.length>1){const i=1+Math.random()*(S.devs.length-1)|0;if(calc().morale<80){say(`${S.devs[i].n} joined Pear Inc. for the minimalist furniture.`);S.devs.splice(i,1)}else say(`${S.devs[i].n} turned down Pear Inc. The beanbags are better here.`)}
+ else if(r<.92){hit(PRODUCTS.map(p=>p.id),8);say("Macrohard and Pear announce a “strategic partnership”. Everyone is uneasy. All rival power +8.")}
+ else{S.cash+=600;say("Amazin’ accidentally ships you 400 boxes of bubble wrap. You resell it: +$600.")}}
+function event(){if(Math.random()<.5)return event2();const r=Math.random(),sh=PRODUCTS.filter(p=>S.ship[p.id]);
+ if(r<.3){const p=PRODUCTS[Math.random()*6|0];S.rp[p.id]+=22;say(`Macrohard bundles ${p.rival} for “free” with everything. Suspicious. (+22 rival power)`)}
+ else if(r<.5&&sh.length){const p=sh[Math.random()*sh.length|0];S.ship[p.id].q=Math.max(10,S.ship[p.id].q-8);say(`Macrohard embraces, extends… and extinguishes ${p.n}’s file format. Quality −8.`)}
+ else if(r<.68&&S.devs.length>1){const m=calc().morale,i=1+Math.random()*(S.devs.length-1)|0;
+  if(m<80){say(`${S.devs[i].n} took a Macrohard offer (free snacks, mandatory forced updates).`);S.devs.splice(i,1)}else say(`${S.devs[i].n} rejected a Macrohard job offer. Treats win.`)}
+ else if(r<.82){S.cash-=1200;say("Macrohard’s lawyers send a patent letter about “rectangles”. Legal fees: $1,200.")}
+ else{S.cash+=900;say("The office husky goes viral online. Fan donations: +$900!")}}
+function paint(i){const g=S.grid[i];if(over)return;
+ if(tool=="erase"){if(g.i){S.cash+=Math.round(ITEMS[g.i].c/2);g.i=null}else if(g.r){S.cash+=20;g.r=null}}
+ else if(ROOMS[tool]){if(g.r==tool||S.cash<40)return;S.cash-=40;g.r=tool;
+  if(g.i&&ITEMS[g.i].r!="*"&&ITEMS[g.i].r!=tool){S.cash+=Math.round(ITEMS[g.i].c/2);g.i=null}}
+ else{const it=ITEMS[tool];if(g.i||!g.r||(it.r!="*"&&it.r!=g.r)||S.cash<it.c)return;S.cash-=it.c;g.i=tool}
+ render()}
+function act(a){if(a=="pause")paused=!paused;else if(a=="speed")speed=speed==1?2:speed==2?4:1,restart();
+ else if(a=="mk"){if(S.cash>=1500){S.cash-=1500;if(Math.random()<.25){const l=Math.round(Math.max(0,S.cash)/8);S.cash-=l;say(`Marketing blitz flopped! The ad was just a blurry husky. You lost another ${$$(l)}, an eighth of your cash.`)}else{S.mk=30;say("Marketing blitz! +30% revenue for 30 days.")}}}
+ else if(a=="loan"){if((S.debt||0)<=10000){S.debt=(S.debt||0)+5000;S.cash+=5000;say("Took a $5,000 loan from Fetch Bank (0.08%/day interest).")}}
+ else if(a=="repay"){const x=Math.min(S.debt||0,2000,Math.max(0,S.cash));if(x>0){S.debt-=x;S.cash-=x}}
+ else if(a.startsWith("lobby:")){const id=a.slice(6);if(S.cash>=1500&&S.rp[id]>25){S.cash-=1500;S.rp[id]=Math.max(25,S.rp[id]-25);say(`Lobbyists tell regulators that ${PRODUCTS.find(p=>p.id==id).rival} is “anticompetitive”. Rival power −25.`)}}
+ else if(a.startsWith("sub:")){if(S.sub==null){const c=COMPS[+a.slice(4)];S.sub=+a.slice(4);S.cash+=15000;say(`Floofy Tech was acquired by ${c.n}! +$15,000 signing bonus, but now every product gets “improvements” from their committee.`)}}
+ else if(a=="detach"){if(S.sub!=null&&S.cash>=25000){const c=COMPS[S.sub];S.cash-=25000;S.sub=null;say(`Paid $25,000 to buy Floofy Tech back from ${c.n}. Independent again!`)}}
+ else if(a=="new"){S=fresh();over="";restart()}
+ else if(a.startsWith("cur:"))S.cur=a.slice(4);
+ else if(a.startsWith("hire:")){const t=TIERS[+a.slice(5)];if(S.cash>=t.c){S.cash-=t.c;S.devs.push({n:NAMES[Math.random()*NAMES.length|0],sk:t.sk});say(`Hired a ${t.n.toLowerCase()} developer.`)}}
+ else if(a.startsWith("fire:")){const i=+a.slice(5);if(S.devs.length>1)S.devs.splice(i,1)}
+ render()}
+function restart(){clearInterval(timer);timer=setInterval(tick,1000/speed)}
+function render(){const d=calc();let di=0;
+ const set=(id,h)=>{if(cache[id]!==h){cache[id]=h;$(id).innerHTML=h}};
+ set("#top",`<span>📅 Day <b>${S.day}</b></span><span>💰 <b style="color:${S.cash<0?"var(--bad)":"inherit"}">${$$(S.cash)}</b></span><span class="m">${d.rev-d.sal>=0?"+":"−"}${$$(Math.abs(d.rev-d.sal))}/day</span><span>😊 Morale ${d.morale}%</span><span>⚙️ ${d.pts.toFixed(1)} pts/day</span>${S.debt?`<span style="color:var(--bad)">🏦 Debt ${$$(S.debt)}</span>`:""}${S.sub!=null?`<span style="color:var(--bad)">🏢 Subsidiary of ${COMPS[S.sub].n}</span>`:""}<span class="m">Goal: ${$$(GOAL)} to take Floofy Tech public${S.sub!=null?" (detach first)":""}</span><span style="margin-left:auto"><button data-a="pause">${paused?"▶ Resume":"⏸ Pause"}</button> <button data-a="speed">${speed}× speed</button></span>`);
+ const tb=Object.entries(ROOMS).map(([k,v])=>`<button class="${tool==k?"on":""}" data-t="${k}">${v.e} ${v.n} $40/tile</button>`).concat(Object.entries(ITEMS).map(([k,v])=>`<button class="${tool==k?"on":""}" data-t="${k}">${v.e} ${v.n} ${$$(v.c)}</button>`),[`<button class="${tool=="erase"?"on":""}" data-t="erase">🧹 Remove</button>`]).join("");
+ set("#tb",tb);
+ set("#grid",S.grid.map((g,i)=>{let e=g.i?ITEMS[g.i].e:"";if(g.i=="desk")e=di++<d.seated?"🧑‍💻":"🖥️";return`<div class="t ${g.r||""}" data-i="${i}">${e}</div>`}).join(""));
+ set("#prod",`<h2>Products <small>(${d.pts.toFixed(1)} pts/day goes to the active project)</small></h2>`+PRODUCTS.map(p=>{const s=S.ship[p.id],k=p.id+":"+(s?"u":"n"),tot=cost(p,!!s),need=S.prog[k]??tot,on=S.cur==k,sh=s?Math.round(100*eq(s)/(eq(s)+S.rp[p.id])):0;
+  return`<div class="card"><b>${p.e} ${p.n}</b> ${s?`<small>v${s.v} · quality ${Math.round(s.q)} (${eq(s)-s.q>=0?"+":""}${Math.round(eq(s)-s.q)} ${S.sub!=null?"subsidiary penalty":"synergy"})</small>`:""}<br><small>Rivals: ${RV[p.id]} (power ${Math.round(S.rp[p.id])})</small>
+  ${s?`<div class="bar"><i style="width:${sh}%"></i></div><small>${sh}% market share · ${$$(p.rev*eq(s)/(eq(s)+S.rp[p.id])*(S.mk>0?1.3:1)*(S.pw>0?.8:1)*(S.sub!=null?1.25:1))}/day</small> <button data-a="lobby:${p.id}" style="padding:1px 6px">🏛️ Lobby $1,500: −25 rival power</button><br>`:`<br><small>Could earn up to ${$$(p.rev)}/day</small><br>`}
+  ${on?`<div class="bar"><i style="width:${Math.round(100*(1-need/tot))}%"></i></div>`:""}<button class="${on?"on":""}" data-a="cur:${k}">${on?"Working on it":s?"Ship an update":"Start building"} · ${Math.ceil(need)} pts</button></div>`}).join("")+`<div class="card"><button data-a="mk">📣 Marketing blitz $1,500 (+30% revenue for 30 days · 25% flop risk: lose ⅛ of your cash)${S.mk?` · ${S.mk}d left`:""}</button></div><div class="card"><button data-a="loan">🏦 Borrow $5,000</button> <button data-a="repay">Repay $2,000</button> <small>Debt ${$$(S.debt||0)} · 0.08%/day interest · counts against your goal</small></div><div class="card"><b>🏢 Corporate offers</b><br>${S.sub!=null?`<small>You are a subsidiary of ${COMPS[S.sub].n}: −40% quality, +25% revenue, +$120/day.</small><br><button data-a="detach"${S.cash<25000?" disabled":""}>Pay $25,000 to detach</button>`:`<small>Sell out for +$15,000 now, +$120/day and +25% revenue, but −40% quality while owned. Buy yourself back later for $25,000.</small><br>`+COMPS.map((c,i)=>`<button data-a="sub:${i}">${c.e} Join ${c.n}</button>`).join(" ")}</div>`);
+ set("#staff",`<h2>Developers <small>(${d.seated}/${d.n} at a desk)</small></h2>`+S.devs.map((v,i)=>`<div>${i<d.seated?"🧑‍💻":"🪑"} ${v.n} <small>skill ${"★".repeat(v.sk)} · ${$$(13*v.sk)}/day${i<d.seated?"":" · needs a desk"}</small> ${i?`<button data-a="fire:${i}" style="padding:0 6px">✕</button>`:""}</div>`).join("")+`<div class="tools">`+TIERS.map((t,i)=>`<button data-a="hire:${i}">Hire ${t.n} ${$$(t.c)}</button>`).join("")+`</div>`);
+ set("#riv",`<h2>Rival companies</h2>`+(S.pw>0?`<p class="m" style="margin:0 0 4px">💸 Amazin’ price war: ${S.pw} days left, revenue −20%</p>`:"")+COMPS.map(c=>{const t=c.f.reduce((a,i)=>a+S.rp[i],0)/c.f.length;return`<div class="card"><b>${c.e} ${c.n}</b> <small>${c.t}</small><div class="bar r"><i style="width:${Math.min(100,Math.round(t/2.5))}%"></i></div><small>Threat ${Math.round(t)}</small></div>`}).join(""));
+ set("#log",`<h2>Office news</h2>`+S.log.map(m=>`<p>${m}</p>`).join(""));
+ $("#ov").className=over?"s":"";
+ set("#ovt",over?(over=="win"?`<h1>🎉 Floofy Tech goes public!</h1><p>You hit ${$$(GOAL)} and ${topRival().e} ${topRival().n}, your biggest rival, sent a very polite acquisition offer. You said no.</p>`:`<h1>📉 Bankrupt</h1><p>The husky has been rehomed with a friend. ${topRival().e} ${topRival().n}, your biggest rival, sends a “thoughtful” condolence bundle.</p>`)+`<button data-a="new">Start a new company</button>`:"")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b)return act(b.dataset.a);
+ const t=e.target.closest("[data-t]");if(t){tool=t.dataset.t;render();return}
+ const c=e.target.closest(".t");if(c)paint(+c.dataset.i)});
+document.addEventListener("mouseover",e=>{const c=e.target.closest(".t");if(c&&e.buttons==1&&ROOMS[tool])paint(+c.dataset.i)});
+S=fresh();render();restart();
+</script></body></html>
