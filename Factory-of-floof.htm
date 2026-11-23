@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Factory of Floof</title>
+<style>
+:root{--bg:#fff7ee;--card:#ffffff;--ink:#2b2433;--mut:#7a6f86;--acc:#ff5c9d;--acc2:#7b5cff;--ok:#27ae6b;--line:#eadfd2;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17131d;--card:#231d2d;--ink:#f4eefb;--mut:#a69bb5;--acc:#ff7ab2;--acc2:#a18bff;--ok:#43d68c;--line:#372e45;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17131d;--card:#231d2d;--ink:#f4eefb;--mut:#a69bb5;--acc:#ff7ab2;--acc2:#a18bff;--ok:#43d68c;--line:#372e45;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Trebuchet MS",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.35}
+button{font:inherit;color:inherit}
+.wrap{max-width:1020px;margin:0 auto;padding:14px}
+header{text-align:center;margin-bottom:12px}
+h1{margin:0;font-size:clamp(26px,6vw,40px);letter-spacing:-.5px}
+h1 span{color:var(--acc)}
+#rank{color:var(--mut);font-size:14px}
+.stats{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px 16px;min-width:130px}
+.stat b{display:block;font-size:24px;color:var(--ok)}
+.stat small{color:var(--mut)}
+.grid{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:820px){.grid{grid-template-columns:340px minmax(0,1fr)}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+h2{margin:0 0 10px;font-size:16px;color:var(--mut);text-transform:uppercase;letter-spacing:1px}
+.center{text-align:center}
+.fw{position:relative;width:200px;height:200px;margin:8px auto}
+.ear{position:absolute;top:-8px;width:66px;height:84px;background:#59616f;clip-path:polygon(50% 0,100% 100%,0 100%);z-index:0}
+.ear::after{content:"";position:absolute;left:22%;right:22%;bottom:0;top:38%;background:#f3b6c4;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.ear.l{left:16px;transform:rotate(-14deg)}.ear.r{right:16px;transform:rotate(14deg)}
+.floof{position:relative;z-index:1;width:190px;height:190px;margin:10px 5px;border:0;border-radius:50%;cursor:pointer;overflow:hidden;background:radial-gradient(circle at 40% 30%,#9aa3b2 0,#6b7483 60%,#4f5663 100%);box-shadow:0 0 0 8px rgba(150,160,180,.35),0 0 0 16px rgba(150,160,180,.18);transition:transform .08s;-webkit-tap-highlight-color:transparent}
+.floof:active{transform:scale(.92)}
+.mask{position:absolute;left:50%;bottom:-6px;width:136px;height:112px;margin-left:-68px;background:#fff;border-radius:50%/40% 40% 60% 60%}
+.blaze{position:absolute;left:50%;top:0;width:30px;height:90px;margin-left:-15px;background:#fff;border-radius:0 0 50% 50%}
+.eye{position:absolute;top:64px;width:22px;height:22px;border-radius:50%;background:radial-gradient(circle,#10131a 0 4px,#5fb4ff 5px)}
+.eye.l{left:44px}.eye.r{right:44px}
+.nose{position:absolute;left:50%;top:104px;width:26px;height:18px;margin-left:-13px;background:#1b1b22;border-radius:50% 50% 65% 65%}
+.tongue{position:absolute;left:50%;top:128px;width:22px;height:30px;margin-left:-11px;background:#ff7a9a;border-top:2px solid #1b1b22;border-radius:0 0 12px 12px}
+.hint{color:var(--mut);font-size:13px;margin:6px 0 0}
+.belt{overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:12px;height:54px;margin-top:12px;position:relative}
+.track{display:flex;width:max-content;animation:belt 10s linear infinite;height:100%;align-items:center}
+.track i{font-style:normal;font-size:28px;width:56px;text-align:center}
+@keyframes belt{to{transform:translateX(-50%)}}
+.ups{display:grid;gap:8px;margin-top:4px}
+.up{text-align:left;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:9px 11px;cursor:pointer;display:grid;gap:2px;opacity:.55}
+.up small{color:var(--mut)}
+.up span{font-weight:700;color:var(--acc2)}
+.up.ok{opacity:1;border-color:var(--acc2)}
+.up.done{opacity:.4;cursor:default}
+.up.done span{color:var(--ok)}
+.card{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;background:var(--bg)}
+.em{font-size:38px;width:52px;text-align:center}
+.inf{flex:1;min-width:0;display:grid;gap:3px}
+.inf small{color:var(--mut)}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tags span{font-size:12px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:1px 8px}
+.buy{border:0;border-radius:12px;padding:10px 12px;font-weight:700;background:var(--line);color:var(--mut);cursor:pointer;min-width:88px}
+.buy.ok{background:var(--acc);color:#fff}
+.rev{margin-top:12px;font-style:italic;color:var(--mut);text-align:center;min-height:42px;font-size:14px}
+.row{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.sm{background:none;border:1px solid var(--line);border-radius:10px;padding:5px 10px;color:var(--mut);cursor:pointer;font-size:13px}
+.pop{position:fixed;pointer-events:none;font-weight:800;color:var(--ok);animation:up .9s forwards;z-index:20;text-shadow:0 1px 0 var(--card)}
+@keyframes up{to{transform:translateY(-60px);opacity:0}}
+.vc{position:fixed;z-index:30;border:0;border-radius:14px;padding:12px 16px;font-size:18px;font-weight:800;background:var(--acc2);color:#fff;cursor:pointer;animation:bob 1s ease-in-out infinite alternate;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+@keyframes bob{to{transform:translateY(-10px) rotate(4deg)}}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:40;max-width:90vw;text-align:center}
+.buffs{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
+.chip{background:var(--acc2);color:#fff;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:700}
+.chip.bad{background:#d6455d}
+.evc{background:var(--card);border:2px solid var(--acc);border-radius:16px;padding:12px 14px;margin-bottom:12px;animation:ein .3s}
+.evc h3{margin:0 0 4px}
+.ch{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ch button{border:0;border-radius:10px;padding:8px 14px;background:var(--acc);color:#fff;font-weight:700;cursor:pointer}
+.res{color:var(--mut);font-style:italic}
+@keyframes ein{from{transform:translateY(-8px);opacity:0}}
+.ipo{width:100%;margin-top:8px;padding:9px}
+.ipo.ok{border-color:var(--acc2);color:var(--acc2);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Factory of <span>Floof</span></h1>
+    <div id="rank"></div>
+    <div class="stats">
+      <div class="stat"><b id="m">$0</b><small>Cash</small></div>
+      <div class="stat"><b id="ps">$0/sec</b><small>Income</small></div>
+      <div class="stat"><b id="cv">$1</b><small>Per Floof pat</small></div>
+    </div>
+  </header>
+  <div id="buffs" class="buffs"></div>
+  <div id="ev"></div>
+  <div class="grid">
+    <div>
+      <div class="panel center">
+        <h2>Pat the Floof</h2>
+        <div class="fw"><i class="ear l"></i><i class="ear r"></i>
+          <button class="floof" id="floof" aria-label="Pat the Floof"><span class="mask"></span><span class="blaze"></span><span class="eye l"></span><span class="eye r"></span><span class="nose"></span><span class="tongue"></span></button>
+        </div>
+        <p class="hint">Pat for cash. Build terrible products for passive income. The worse the idea, the bigger the payout.</p>
+        <div class="belt"><div class="track" id="track"></div></div>
+        <div class="rev" id="rev"></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h2>Questionable Upgrades</h2>
+        <div class="ups" id="ups"></div>
+        <h2 style="margin-top:14px">Initial Public Offering</h2>
+        <p class="hint">Reset your factory for permanent Hype Shares (+10% income each). Earn $1B in a run to get your first.</p>
+        <p class="hint" id="sh"></p>
+        <button class="sm ipo" id="ipo">Go Public</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Product Lines</h2>
+      <div id="prods"></div>
+      <div class="row"><button class="sm" id="theme">Toggle theme</button><button class="sm" id="reset">Reset game</button></div>
+    </div>
+  </div>
+</div>
+<script>
+const P=[
+{id:'toaster',e:'🍞',n:'Wi-Fi Toaster',d:'Needs a firmware update to make toast.',c:15,b:1},
+{id:'micro',e:'🎮',n:'Gaming Microwave',d:'RGB lighting adds 40 seconds to every burrito.',c:130,b:2},
+{id:'shoe',e:'👟',n:'AI Shoelaces',d:'They tie themselves. Then they judge you.',c:1200,b:2},
+{id:'fridge',e:'🧊',n:'Blockchain Refrigerator',d:'Every yogurt is a verified ledger entry.',c:12000,b:3},
+{id:'spoon',e:'🥄',n:'Spoon with Ads',d:'Skip ad in 5… 4… 3… (the soup is cold).',c:130000,b:3},
+{id:'door',e:'🚪',n:'NFT Doorknob',d:'You do not own the door. You own the receipt.',c:1.4e6,b:4},
+{id:'umb',e:'☂️',n:'Cloud-Connected Umbrella',d:'Only opens with Wi-Fi. Indoors only.',c:2e7,b:4},
+{id:'soap',e:'🧼',n:'Quantum Soap',d:'Clean and dirty at once, until observed.',c:3.3e8,b:5},
+{id:'brush',e:'🚽',n:'Self-Aware Toilet Brush',d:'Has opinions. Files performance reviews.',c:5e9,b:5},
+{id:'stairs',e:'🪜',n:'Subscription Stairs',d:'Step 1 is free. Steps 2–12 are Premium.',c:1e11,b:5},
+{id:'sock',e:'🧦',n:'Metaverse Socks',d:'Walk a mile in somebody else’s avatar.',c:1.5e12,b:6},
+{id:'plant',e:'🪴',n:'Subscription Houseplant',d:'Photosynthesis requires a monthly plan.',c:2e13,b:6},
+{id:'sundial',e:'🕰️',n:'Wi-Fi Sundial',d:'Down for maintenance whenever it is cloudy.',c:3e14,b:6},
+{id:'couch',e:'🛋️',n:'Couch with Terms of Service',d:'By sitting, you agree to sit.',c:4.5e15,b:7},
+{id:'rain',e:'🌧️',n:'Rain-as-a-Service',d:'Weather, but with a login.',c:7e16,b:7},
+{id:'bell',e:'🧠',n:'Brain-Computer Doorbell',d:'Rings when you think about visitors. Constantly.',c:1e18,b:7},
+{id:'hole',e:'🕳️',n:'Premium Hole',d:'It is a hole, but with a roadmap.',c:1.5e19,b:7},
+{id:'woof',e:'🐕',n:'Husky Translator Pro',d:'Translates “woo” into 14 premium languages.',c:2.5e20,b:7}
+];
+const U=[
+{id:'brush',n:'Fluffier Pat Technology',d:'Floof pats are worth 2×.',c:150,t:'click',v:2},
+{id:'ai',n:'Add “AI” to Every Product Name',d:'All income ×1.5. Nothing changes except the price.',c:2500,t:'all',v:1.5},
+{id:'qa',n:'Fire the QA Department',d:'All income ×2. What could go wrong?',c:5e4,t:'all',v:2},
+{id:'pat',n:'Floof Intern Army',d:'Floof pats are worth 5×. Unpaid, of course.',c:2e5,t:'click',v:5},
+{id:'safe',n:'Remove All Safety Testing',d:'All income ×2. Lawyers are “synergizing.”',c:2e6,t:'all',v:2},
+{id:'syn',n:'Mandatory Synergy Meeting',d:'All income ×2.5. Nobody knows why.',c:1e8,t:'all',v:2.5},
+{id:'sub',n:'Subscription for Everything',d:'All income ×3. Even the subscription has a subscription.',c:5e9,t:'all',v:3}
+];
+const R=[[0,'Garage Tinkerer'],[1e3,'Questionable Startup'],[1e5,'Venture-Backed Disaster'],[1e7,'Unicorn (a Horse in a Hat)'],[1e9,'Disruptor of Things Nobody Asked For'],[1e11,'Floof Mogul'],[1e13,'Emperor of the Cursed Marketplace']];
+const REV=['“Toast was perfect. Then it asked me to rate the toast.” ★★★★★','“My fridge mined 0.0000001 coins and spoiled my milk.” ★★★★★','“The shoelaces tied themselves to my other shoe.” ★★★★★','“I did not need this. Will buy again.” ★★★★★','“Doorknob now needs a seed phrase. I live in the garden.” ★★★★★','“My umbrella lost Wi-Fi. I lost my dignity.” ★★★★★','“The microwave runs at 144 FPS. Burrito is still cold.” ★★★★★','“Stairs asked me to upgrade mid-step.” ★★★★★','“The toilet brush gave me a performance review.” ★★★★★','“Worse than I imagined. Take my money.” ★★★★★'];
+const BM=[1,1.5,2.5,4,7,10,15],KEY='factory-of-floof-v1';
+const $=s=>document.querySelector(s);
+const fresh=()=>({m:0,tot:0,run:0,sh:0,own:{},up:{},buffs:[]});
+let S=fresh();
+try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+if(!S.run&&S.tot)S.run=S.tot;
+const fmt=n=>{const s=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc'];let i=0;while(n>=1000&&i<s.length-1){n/=1000;i++}return (i?n.toFixed(n<10?2:n<100?1:0):(n<10?n.toFixed(2):n.toFixed(0)))+s[i]};
+const live=()=>(S.buffs||[]).filter(b=>b.u>Date.now());
+const mult=t=>U.filter(u=>S.up[u.id]&&u.t===t).reduce((a,u)=>a*u.v,1)*live().filter(b=>b.t===t).reduce((a,b)=>a*b.m,1);
+const unit=p=>p.c*0.01*BM[p.b-1]*mult('all')*(1+0.1*S.sh)*Math.pow(2,Math.floor((S.own[p.id]||0)/25));
+const ps=()=>P.reduce((a,p)=>a+(S.own[p.id]||0)*unit(p),0);
+const cost=p=>Math.ceil(p.c*Math.pow(1.15,S.own[p.id]||0));
+const clickVal=()=>(1+ps()*0.05)*mult('click');
+const last={};
+function render(){
+  $('#m').textContent='$'+fmt(S.m);
+  $('#ps').textContent='$'+fmt(ps())+'/sec';
+  $('#cv').textContent='$'+fmt(clickVal());
+  $('#rank').textContent=[...R].reverse().find(r=>S.tot>=r[0])[1];
+  let h='';
+  P.forEach((p,i)=>{
+    const n=S.own[p.id]||0;
+    if(!(i===0||n||S.run>=p.c*0.4))return;
+    const c=cost(p),ok=S.m>=c;
+    h+=`<div class="card"><div class="em">${p.e}</div><div class="inf"><b>${p.n}</b><small>${p.d}</small><div class="tags"><span>${'🔥'.repeat(p.b)} Terrible Idea ${p.b}/7</span><span>Payout ×${BM[p.b-1]}</span></div><small>Owned ${n} · $${fmt(unit(p))}/sec each · 2× at ${(Math.floor(n/25)+1)*25}</small></div><button class="buy${ok?' ok':''}" data-p="${p.id}">Build<br>$${fmt(c)}</button></div>`;
+  });
+  if(h!==last.p){$('#prods').innerHTML=h;last.p=h}
+  let u='';
+  U.forEach(x=>{
+    const b=S.up[x.id];
+    if(!b&&S.run<x.c*0.3)return;
+    u+=`<button class="up${b?' done':S.m>=x.c?' ok':''}" data-u="${x.id}"><b>${x.n}</b><small>${x.d}</small><span>${b?'Purchased':'$'+fmt(x.c)}</span></button>`;
+  });
+  if(u!==last.u){$('#ups').innerHTML=u;last.u=u}
+  let a=[];
+  P.forEach(p=>{for(let j=0;j<Math.min(S.own[p.id]||0,3);j++)a.push(p.e)});
+  if(!a.length)a=['🧶'];
+  while(a.length<8)a=a.concat(a);
+  const k=a.join('');
+  if(k!==last.b){const s=a.map(e=>`<i>${e}</i>`).join('');$('#track').innerHTML=s+s;$('#track').style.animationDuration=(a.length*1.1)+'s';last.b=k}
+  renderMeta();
+}
+function pop(x,y,t){const d=document.createElement('div');d.className='pop';d.textContent=t;d.style.left=(x-16)+'px';d.style.top=(y-20)+'px';document.body.appendChild(d);setTimeout(()=>d.remove(),900)}
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),3500)}
+function gain(v){S.m+=v;S.tot+=v;S.run+=v}
+$('#floof').addEventListener('click',e=>{
+  const v=clickVal(),r=e.currentTarget.getBoundingClientRect();
+  gain(v);pop(e.clientX||r.left+r.width/2,e.clientY||r.top+r.height/2,'+$'+fmt(v));render();
+});
+$('#prods').addEventListener('click',e=>{
+  const b=e.target.closest('[data-p]');if(!b)return;
+  const p=P.find(x=>x.id===b.dataset.p),c=cost(p);
+  if(S.m<c)return;
+  S.m-=c;S.own[p.id]=(S.own[p.id]||0)+1;render();
+});
+$('#ups').addEventListener('click',e=>{
+  const b=e.target.closest('[data-u]');if(!b)return;
+  const x=U.find(y=>y.id===b.dataset.u);
+  if(S.up[x.id]||S.m<x.c)return;
+  S.m-=x.c;S.up[x.id]=1;render();
+});
+let t0=performance.now();
+setInterval(()=>{const n=performance.now(),dt=Math.min((n-t0)/1000,5);t0=n;gain(ps()*dt);render()},100);
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+setInterval(save,5000);
+addEventListener('visibilitychange',save);
+let ri=0;
+function rev(){$('#rev').textContent=REV[ri++%REV.length]}
+rev();setInterval(rev,7000);
+function vc(){
+  const b=document.createElement('button');
+  b.className='vc';b.textContent='💼 Investor!';
+  b.style.left=(8+Math.random()*60)+'vw';b.style.top=(20+Math.random()*55)+'vh';
+  b.onclick=()=>{const v=ps()*90+100;gain(v);toast('An investor paid $'+fmt(v)+' because they did not understand it.');b.remove()};
+  document.body.appendChild(b);setTimeout(()=>b.remove(),12000);
+}
+(function sched(){setTimeout(()=>{vc();sched()},(last.first?40000:25000)+Math.random()*50000);last.first=1})();
+const buff=(n,m,s,t='all')=>{S.buffs=live().concat([{n,m,t,u:Date.now()+s*1000}])};
+let ip=0;
+function renderMeta(){
+  const h=live().map(b=>`<span class="chip${b.m<1?' bad':''}">${b.n} ×${b.m} · ${Math.ceil((b.u-Date.now())/1000)}s</span>`).join('');
+  if(h!==last.f){$('#buffs').innerHTML=h;last.f=h}
+  const g=Math.floor(Math.sqrt(S.run/1e9)),b=$('#ipo');
+  const t=ip?'Really go public? This resets your factory':'Go Public (IPO) · +'+g+' Hype Shares';
+  if(b.textContent!==t)b.textContent=t;
+  b.classList.toggle('ok',g>=1);
+  $('#sh').textContent=S.sh?S.sh+' Hype Shares: +'+(S.sh*10)+'% income':'No Hype Shares yet.';
+}
+$('#ipo').addEventListener('click',()=>{
+  const g=Math.floor(Math.sqrt(S.run/1e9));
+  if(g<1){toast('Earn at least $1B in this run to go public.');return}
+  if(!ip){ip=1;setTimeout(()=>{ip=0},3000);return}
+  ip=0;const sh=S.sh+g,tot=S.tot;S=fresh();S.sh=sh;S.tot=tot;save();toast('IPO complete! +'+g+' Hype Shares.');render();
+});
+const EV=[
+{t:'⚖️ Lawsuit!',d:'A customer’s toaster became sentient and is suing you for emotional damages.',c:[['Settle',()=>{const v=S.m*0.1;S.m-=v;return 'You paid $'+fmt(v)+'. The toaster joined your board.'}],['Fight it',()=>{if(Math.random()<.5){buff('Legal Fame',3,60);return 'You won! Court TV made you famous. Income ×3 for 60s.'}const v=S.m*0.25;S.m-=v;return 'You lost. The toaster got $'+fmt(v)+' and your parking spot.'}]]},
+{t:'📈 Viral Tweet',d:'The CEO tweeted at 3 a.m. It is unhinged and everyone is sharing it.',c:[['Double down',()=>{if(Math.random()<.7){buff('Viral',3,60);return 'It worked. Income ×3 for 60s.'}buff('Cancelled',0.5,60);return 'Cancelled. Income ×0.5 for 60s.'}],['Delete it',()=>{const v=ps()*30;gain(v);return 'Nobody noticed. Interns found $'+fmt(v)+' in the couch.'}]]},
+{t:'🚨 Recall Notice',d:'Regulators demand a recall of one of your products.',c:[['Bribe a regulator',()=>{const v=Math.max(ps()*60,10);if(S.m>=v){S.m-=v;return 'You paid $'+fmt(v)+' for “consulting”. Recall forgotten.'}buff('Recall',0.7,45);return 'Not enough cash. Income ×0.7 for 45s.'}],['Comply',()=>{buff('Recall',0.7,45);return 'Everything recalled. Income ×0.7 for 45s.'}]]},
+{t:'🐺 The Husky Howls',d:'The Floof is howling at 3 a.m. Morale is... something.',c:[['Howl back',()=>{buff('Howl Power',10,25,'click');return 'Floof pats worth ×10 for 25s.'}],['Give treats',()=>{buff('Good Dog',1.5,60);return 'Income ×1.5 for 60s.'}]]},
+{t:'🎤 Investor Demo Day',d:'You must pitch “Stairs, but worse” to a room of very serious people.',c:[['Pitch it',()=>{if(Math.random()<.6){const v=ps()*300+500;gain(v);return 'Standing ovation. +$'+fmt(v)}buff('Embarrassed',0.8,30);return 'Laughed out of the room. Income ×0.8 for 30s.'}],['Hide in the bathroom',()=>'Wise. Nothing happens.']]},
+{t:'🏆 Worst Product Award',d:'You just won an award for the worst product of the year.',c:[['Accept proudly',()=>{buff('Award Winner',2,90);return 'Income ×2 for 90s. The worse, the better.'}]]},
+{t:'🛍️ Black Friday',d:'Shoppers are lining up for products they do not understand.',c:[['Slash prices',()=>{const v=ps()*120+200;gain(v);return '+$'+fmt(v)+' from panicked shoppers.'}],['Raise prices',()=>{buff('Premium Brand',1.5,60);return 'Income ×1.5 for 60s.'}]]},
+{t:'🕯️ Cult Following',d:'A strange group now worships your newest product.',c:[['Accept donations',()=>{const v=ps()*100+100;gain(v);return '+$'+fmt(v)+' in suspicious envelopes.'}],['Join them',()=>{buff('Devotion',2,45);return 'Income ×2 for 45s. The robes are comfy.'}]]}
+];
+let evId=0;
+function schedEv(){setTimeout(showEv,35000+Math.random()*40000)}
+function showEv(){
+  const e=EV[Math.floor(Math.random()*EV.length)],box=$('#ev'),id=++evId;
+  box.innerHTML=`<div class="evc"><h3>${e.t}</h3><div>${e.d}</div><div class="ch">${e.c.map((c,i)=>`<button data-i="${i}">${c[0]}</button>`).join('')}</div></div>`;
+  box.onclick=ev=>{
+    const b=ev.target.closest('[data-i]');if(!b)return;
+    box.onclick=null;
+    box.innerHTML=`<div class="evc"><h3>${e.t}</h3><div class="res">${e.c[+b.dataset.i][1]()}</div></div>`;
+    render();schedEv();
+    setTimeout(()=>{if(evId===id)box.innerHTML=''},7000);
+  };
+  setTimeout(()=>{if(evId===id&&box.onclick){box.onclick=null;box.innerHTML='';schedEv()}},30000);
+}
+setTimeout(showEv,45000);
+let rs=0;
+$('#reset').addEventListener('click',e=>{
+  if(!rs){rs=1;e.target.textContent='Really reset?';setTimeout(()=>{rs=0;e.target.textContent='Reset game'},3000);return}
+  S=fresh();save();rs=0;e.target.textContent='Reset game';render();
+});
+$('#theme').addEventListener('click',()=>{
+  const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+  r.dataset.theme=dark?'light':'dark';
+});
+render();
+</script>
+</body>
+</html>
