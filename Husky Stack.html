@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Husky Stack</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#eaf6ff;--sub:#9fc3dc;--night:#0b1630;--panel:#13264a;--ice:#7fd8ff;--line:#2a4a7a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100vh;color:var(--ink);font-family:'Fredoka',system-ui,sans-serif;
+background:radial-gradient(120% 60% at 20% 0%,rgba(80,255,200,.22),transparent 60%),radial-gradient(100% 50% at 90% 10%,rgba(140,120,255,.25),transparent 60%),var(--night);
+display:flex;flex-direction:column;align-items:center;padding:10px 10px 16px;user-select:none;touch-action:manipulation}
+h1{margin:4px 0 8px;font-size:26px;letter-spacing:.5px}
+.wrap{display:flex;gap:12px;align-items:flex-start;justify-content:center;width:100%}
+canvas{display:block}
+#board{height:min(62vh,640px);aspect-ratio:1/2;width:auto;max-width:62vw;background:#0a1226;border:3px solid var(--ice);border-radius:12px}
+.side{display:flex;flex-direction:column;gap:8px;width:104px}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:8px;text-align:center}
+.card small{display:block;color:var(--sub);font-size:13px}
+.card b{font-size:22px}
+#next{width:88px;height:88px;margin:4px auto 0}
+.ctl{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px;width:min(420px,100%)}
+.ctl button{font:700 22px 'Fredoka',system-ui,sans-serif;color:var(--ink);background:var(--panel);border:2px solid var(--ice);border-radius:14px;height:54px;padding:0}
+.ctl button:active{background:var(--ice);color:var(--night)}
+.ctl button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.hint{color:var(--sub);font-size:13px;margin-top:8px;text-align:center}
+@media (min-width:700px){.ctl{display:none}}
+</style>
+</head>
+<body>
+<h1>🐾 Husky Stack</h1>
+<div class="wrap">
+  <canvas id="board" width="300" height="600" aria-label="Husky Stack game board"></canvas>
+  <div class="side">
+    <div class="card"><small>Hold pup (C)</small><canvas id="holdc" width="96" height="96" style="width:88px;height:88px;margin:4px auto 0"></canvas></div>
+    <div class="card"><small>Next pup</small><canvas id="next" width="96" height="96"></canvas></div>
+    <div class="card"><small>Treats</small><b id="score">0</b></div>
+    <div class="card"><small>Howls</small><b id="lines">0</b></div>
+    <div class="card"><small>Sled speed</small><b id="level">1</b></div>
+  </div>
+</div>
+<div class="ctl">
+  <button id="bL" aria-label="Left">◀</button>
+  <button id="bR" aria-label="Right">▶</button>
+  <button id="bRot" aria-label="Rotate">⟳</button>
+  <button id="bD" aria-label="Soft drop">▼</button>
+  <button id="bDrop" aria-label="Hard drop">⏬</button>
+  <button id="bHold" aria-label="Hold">⇄</button>
+</div>
+<div class="hint">Arrows or WASD move · Up rotates · Space drops · C holds · P pauses</div>
+<script>
+const W=10,H=20,C=30;
+const bc=document.getElementById('board'),b=bc.getContext('2d');
+const nc=document.getElementById('next'),n=nc.getContext('2d');
+const hc=document.getElementById('holdc'),h=hc.getContext('2d');
+const SH={I:[[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],O:[[1,1],[1,1]],T:[[0,1,0],[1,1,1],[0,0,0]],S:[[0,1,1],[1,1,0],[0,0,0]],Z:[[1,1,0],[0,1,1],[0,0,0]],J:[[1,0,0],[1,1,1],[0,0,0]],L:[[0,0,1],[1,1,1],[0,0,0]]};
+// Each tetromino is a different husky coat
+const PAL={I:['#8fa3b8','#4a5d73'],O:['#2b2f3a','#12141b'],T:['#c0603a','#7a3418'],S:['#d9c7a3','#9a845c'],Z:['#5b6b82','#2f3a4d'],J:['#b9c2cb','#7b8590'],L:['#8a6a4a','#503820']};
+const KEYS=Object.keys(SH);let held=null,canHold=true;
+let grid,cur,next,score,lines,level,state='start',acc=0,last=0,flash=0,flashTxt='',bag=[];
+
+function husky(ctx,x,y,s,k,a=1){
+  const [fur,dark]=PAL[k];ctx.save();ctx.globalAlpha=a;
+  const p=s*.06;
+  ctx.fillStyle=dark;
+  ctx.beginPath();ctx.moveTo(x+p,y+p);ctx.lineTo(x+s*.38,y+p);ctx.lineTo(x+p,y+s*.42);ctx.fill();
+  ctx.beginPath();ctx.moveTo(x+s-p,y+p);ctx.lineTo(x+s*.62,y+p);ctx.lineTo(x+s-p,y+s*.42);ctx.fill();
+  ctx.fillStyle=fur;ctx.beginPath();ctx.roundRect(x+p,y+s*.14,s-2*p,s-s*.14-p,s*.28);ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.ellipse(x+s/2,y+s*.72,s*.3,s*.22,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.moveTo(x+s/2,y+s*.16);ctx.lineTo(x+s*.58,y+s*.5);ctx.lineTo(x+s*.42,y+s*.5);ctx.fill();
+  for(const dx of[.3,.7]){
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x+s*dx,y+s*.46,s*.11,0,7);ctx.fill();
+    ctx.fillStyle='#4cc8ff';ctx.beginPath();ctx.arc(x+s*dx,y+s*.46,s*.085,0,7);ctx.fill();
+    ctx.fillStyle='#0a1226';ctx.beginPath();ctx.arc(x+s*dx,y+s*.46,s*.04,0,7);ctx.fill();
+  }
+  ctx.fillStyle='#0a1226';ctx.beginPath();ctx.ellipse(x+s/2,y+s*.66,s*.07,s*.05,0,0,7);ctx.fill();
+  ctx.restore();
+}
+function bag7(){if(!bag.length){bag=[...KEYS];for(let i=6;i>0;i--){const j=Math.random()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}}return bag.pop()}
+function mk(k){const m=SH[k].map(r=>[...r]);return{k,m,x:(W-m[0].length)/2|0,y:0}}
+function hit(m,x,y){for(let r=0;r<m.length;r++)for(let c=0;c<m[r].length;c++)if(m[r][c]){const gx=x+c,gy=y+r;if(gx<0||gx>=W||gy>=H||(gy>=0&&grid[gy][gx]))return true}return false}
+function reset(){grid=Array.from({length:H},()=>Array(W).fill(0));score=0;lines=0;level=1;bag=[];held=null;canHold=true;next=mk(bag7());spawn();state='play';ui()}
+function spawn(){cur=next;next=mk(bag7());if(hit(cur.m,cur.x,cur.y)){state='over'}}
+function ui(){score_.textContent=score;lines_.textContent=lines;level_.textContent=level}
+const score_=document.getElementById('score'),lines_=document.getElementById('lines'),level_=document.getElementById('level');
+function move(d){if(state!=='play')return;if(!hit(cur.m,cur.x+d,cur.y))cur.x+=d}
+function rot(){if(state!=='play')return;const m=cur.m[0].map((_,i)=>cur.m.map(r=>r[i]).reverse());for(const k of[0,-1,1,-2,2])if(!hit(m,cur.x+k,cur.y)){cur.m=m;cur.x+=k;return}}
+function lock(){
+  cur.m.forEach((row,r)=>row.forEach((v,c)=>{if(v&&cur.y+r>=0)grid[cur.y+r][cur.x+c]=cur.k}));
+  let cl=0;for(let r=H-1;r>=0;r--)if(grid[r].every(v=>v)){grid.splice(r,1);grid.unshift(Array(W).fill(0));cl++;r++}
+  if(cl){score+=[0,100,300,500,800][cl]*level;lines+=cl;level=1+(lines/10|0);flash=1200;flashTxt=['','Woof!','Aroo!','Awoo-oo!','AWOOOOO!'][cl]}
+  score+=2;ui();canHold=true;spawn()
+}
+function drop(){if(state!=='play')return;if(!hit(cur.m,cur.x,cur.y+1))cur.y++;else lock();acc=0}
+function hard(){if(state!=='play')return;let d=0;while(!hit(cur.m,cur.x,cur.y+1)){cur.y++;d++}score+=d*2;lock();acc=0}
+function hold(){
+  if(state!=='play'||!canHold)return;
+  const k=cur.k;
+  if(held){cur=mk(held)}else{cur=next;next=mk(bag7())}
+  held=k;canHold=false;acc=0;
+  if(hit(cur.m,cur.x,cur.y))state='over'
+}
+function toggle(){if(state==='play')state='pause';else if(state==='pause')state='play';else reset()}
+
+function txt(t,y,size,col='#fff'){b.fillStyle=col;b.font=`700 ${size}px Fredoka,system-ui,sans-serif`;b.textAlign='center';b.fillText(t,W*C/2,y)}
+function draw(){
+  b.clearRect(0,0,W*C,H*C);
+  b.strokeStyle='rgba(127,216,255,.08)';b.lineWidth=1;
+  for(let i=1;i<W;i++){b.beginPath();b.moveTo(i*C,0);b.lineTo(i*C,H*C);b.stroke()}
+  for(let i=1;i<H;i++){b.beginPath();b.moveTo(0,i*C);b.lineTo(W*C,i*C);b.stroke()}
+  if(grid)grid.forEach((row,r)=>row.forEach((k,c)=>{if(k)husky(b,c*C,r*C,C,k)}));
+  if(cur&&state!=='start'){
+    let gy=cur.y;while(!hit(cur.m,cur.x,gy+1))gy++;
+    cur.m.forEach((row,r)=>row.forEach((v,c)=>{if(v){husky(b,(cur.x+c)*C,(gy+r)*C,C,cur.k,.22);husky(b,(cur.x+c)*C,(cur.y+r)*C,C,cur.k)}}));
+  }
+  n.clearRect(0,0,96,96);
+  if(next){const m=next.m,s=24,ox=(96-m[0].length*s)/2,oy=(96-m.length*s)/2;m.forEach((row,r)=>row.forEach((v,c)=>{if(v)husky(n,ox+c*s,oy+r*s,s,next.k)}))}
+  h.clearRect(0,0,96,96);
+  if(held){const m=SH[held],s=24,ox=(96-m[0].length*s)/2,oy=(96-m.length*s)/2;m.forEach((row,r)=>row.forEach((v,c)=>{if(v)husky(h,ox+c*s,oy+r*s,s,held,canHold?1:.35)}))}
+  if(flash>0){b.globalAlpha=Math.min(1,flash/400);txt(flashTxt,H*C/2-60,34,'#7fd8ff');b.globalAlpha=1}
+  if(state!=='play'){
+    b.fillStyle='rgba(8,14,32,.78)';b.fillRect(0,0,W*C,H*C);
+    const o={start:['Husky Stack','Tap or press Enter','to start the sled run'],pause:['Resting','Press P or tap','to keep going'],over:['Sled stuck!','Treats: '+score,'Tap or press Enter to retry']}[state];
+    txt(o[0],230,38,'#7fd8ff');txt(o[1],285,22);txt(o[2],315,18,'#9fc3dc');
+    husky(b,W*C/2-30,350,60,'I');
+  }
+}
+function loop(t){
+  const dt=t-last;last=t;
+  if(state==='play'){acc+=dt;const sp=Math.max(90,800-(level-1)*70);if(acc>sp)drop()}
+  if(flash>0)flash-=dt;
+  draw();requestAnimationFrame(loop)
+}
+document.addEventListener('keydown',e=>{
+  const k=e.key;
+  if(['ArrowLeft','ArrowRight','ArrowDown','ArrowUp',' '].includes(k))e.preventDefault();
+  if(k==='Enter'){if(state!=='play')toggle();return}
+  if(k==='p'||k==='P'){if(state==='play'||state==='pause')toggle();return}
+  if(k==='ArrowLeft'||k==='a')move(-1);
+  else if(k==='ArrowRight'||k==='d')move(1);
+  else if(k==='ArrowUp'||k==='w')rot();
+  else if(k==='ArrowDown'||k==='s'){drop();score++;ui()}
+  else if(k===' ')hard();
+  else if(k==='c'||k==='C'||k==='Shift')hold();
+});
+// touch controls with hold-to-repeat for movement
+function bind(id,fn,rep){
+  const el=document.getElementById(id);let t;
+  const stop=()=>clearInterval(t);
+  el.addEventListener('pointerdown',e=>{e.preventDefault();fn();if(rep){stop();t=setInterval(fn,110)}});
+  ['pointerup','pointerleave','pointercancel'].forEach(ev=>el.addEventListener(ev,stop));
+}
+bind('bL',()=>move(-1),1);bind('bR',()=>move(1),1);bind('bRot',rot);bind('bD',()=>{drop();score++;ui()},1);bind('bDrop',hard);bind('bHold',hold);
+bc.addEventListener('pointerdown',()=>{if(state!=='play')toggle()});
+grid=Array.from({length:H},()=>Array(W).fill(0));next=mk(bag7());
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
