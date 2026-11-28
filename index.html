@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FloofyTech Portal</title>
+<meta name="description" content="FloofyTech is a fun, creative web portal full of experiments, projects, and floofy chaos. Come explore and have fun!">
+<!-- hello from the code -->
+<!-- Fix wolf emoji rendering -->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji" rel="stylesheet">
+
+<style>
+body{
+  margin:0;
+  font-family:monospace;
+  color:white;
+  overflow:hidden;
+
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  background:#5b2f3f;
+  position:relative;
+
+  opacity:0;
+  transition:opacity 0.5s ease;
+}
+
+body.loaded{
+  opacity:1;
+}
+
+/* BACKGROUND CANVAS */
+#bg{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  z-index:-1;
+}
+
+/* CONTENT */
+.container{
+  text-align:center;
+  max-width:800px;
+  width:100%;
+}
+
+h1{
+  margin-bottom:10px;
+  text-shadow:0 0 10px #0ff;
+}
+
+.warning{
+  color:#01ff65;
+  margin-bottom:25px;
+  font-size:14px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+  gap:15px;
+  justify-content:center;
+  max-width:650px;
+  margin:0 auto 25px auto;
+}
+
+/* BUTTONS + SHIMMER */
+.grid a{
+  display:block;
+  padding:15px;
+  background:rgba(20,20,20,0.85);
+  border-radius:10px;
+  text-decoration:none;
+  color:white;
+  transition:0.2s;
+  backdrop-filter:blur(4px);
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+
+.grid a:hover{
+  background:#0ff;
+  color:black;
+  transform:scale(1.03);
+}
+
+/* shimmer corners */
+.grid a::before, .grid a::after{
+  content:"";
+  position:absolute;
+  width:12px;
+  height:12px;
+  background:linear-gradient(45deg, rgba(255,255,255,0.6), rgba(0,255,255,0.8));
+  opacity:0;
+  transition:opacity 0.3s;
+  pointer-events:none;
+  filter:blur(1px);
+}
+
+.grid a::before{
+  top:0;
+  left:0;
+  border-radius:0 0 10px 0;
+}
+
+.grid a::after{
+  bottom:0;
+  right:0;
+  border-radius:10px 0 0 0;
+}
+
+.grid a:hover::before,
+.grid a:hover::after{
+  opacity:1;
+}
+
+.main-site{
+  display:inline-block;
+  padding:15px 25px;
+  background:#550000;
+  border-radius:10px;
+  text-decoration:none;
+  color:white;
+  font-weight:bold;
+}
+
+.main-site:hover{
+  background:#ff0000;
+}
+
+/* FOOTNOTE */
+.footnote{
+  position:fixed;
+  bottom:8px;
+  right:8px;
+  font-size:12px;
+  opacity:0.7;
+  color:#0ff;
+  text-shadow:0 0 5px #0ff;
+  font-family:monospace;
+  cursor:pointer;
+}
+
+/* --- Lyd‑AI Widget Styles --- */
+#floofy-widget {
+  position: fixed;
+  bottom: 85px;
+  right: 25px;
+  z-index: 999999;
+  font-family: "Noto Color Emoji", system-ui, sans-serif;
+}
+
+#floofy-btn {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9, #0f172a);
+  box-shadow: 0 0 25px #38bdf8aa, 0 0 60px #22c55e55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  transition: 0.2s;
+}
+
+#floofy-btn:hover {
+  transform: scale(1.1) rotate(3deg);
+  box-shadow: 0 0 40px #38bdf8ff, 0 0 80px #22c55eff;
+}
+
+#floofy-panel {
+  width: 340px;
+  height: 500px;
+  background: #020617;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  position: absolute;
+  bottom: 80px;
+  right: 0;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#floofy-header {
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  color: #0f172a;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+#floofy-header img {
+  width: 22px;
+  height: 22px;
+}
+
+#floofy-sub {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#floofy-chat {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #e5e7eb;
+  font-size: 14px;
+}
+
+.floofy-msg {
+  padding: 8px 10px;
+  border-radius: 10px;
+  max-width: 80%;
+  white-space: pre-wrap;
+}
+
+.floofy-user {
+  align-self: flex-end;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.floofy-lyd {
+  align-self: flex-start;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.floofy-system {
+  align-self: center;
+  font-size: 11px;
+  color: #9ca3af;
+  opacity: 0.9;
+}
+
+#floofy-input-row {
+  padding: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+  display: flex;
+  gap: 6px;
+}
+
+#floofy-input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: #0f172a;
+  color: #e5e7eb;
+  font-size: 13px;
+}
+
+#floofy-send {
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #38bdf8, #22c55e);
+  color: #0f172a;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* --- Header buttons + Teach panel --- */
+#floofy-header > div:first-child{ flex:1; }
+.floofy-hbtn{
+  border:none; cursor:pointer; border-radius:999px;
+  padding:5px 10px; font-size:12px; font-weight:600;
+  background:rgba(15,23,42,0.25); color:#0f172a;
+}
+.floofy-hbtn.active{ background:#0f172a; color:#22c55e; }
+#floofy-teach{
+  position:absolute; inset:0; z-index:5;
+  background:#020617; color:#e5e7eb; font-size:13px;
+  display:none; flex-direction:column; gap:8px; padding:12px; overflow-y:auto;
+}
+#floofy-teach .ft-title{ font-weight:700; font-size:15px; color:#38bdf8; }
+#floofy-teach .ft-note{ font-size:11px; color:#9ca3af; }
+#ft-text{
+  width:100%; box-sizing:border-box; min-height:70px; resize:vertical;
+  padding:8px; border-radius:10px; background:#0f172a; color:#e5e7eb;
+  border:1px solid rgba(148,163,184,0.5); font-family:inherit; font-size:13px;
+}
+#floofy-teach .ft-row{ display:flex; gap:6px; }
+#floofy-teach .ft-row button, .ft-del{
+  border:none; border-radius:999px; cursor:pointer; font-weight:600; font-size:12px;
+  padding:7px 14px; background:linear-gradient(135deg,#38bdf8,#22c55e); color:#0f172a;
+}
+.ft-item{
+  display:flex; gap:8px; align-items:flex-start; padding:6px 8px; border-radius:8px;
+  background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3);
+}
+.ft-item span{ flex:1; word-break:break-word; }
+.ft-del{ padding:3px 8px; background:#7f1d1d; color:#fff; }
+html.mobile #ft-text{ font-size:16px; }
+html.mobile .floofy-hbtn{ padding:7px 10px; }
+
+.floofy-msg a{ color:#7dd3fc; text-decoration:underline; font-weight:600; }
+.floofy-msg a:active{ color:#22c55e; }
+
+/* BOTTOM LEFT IMAGE */
+.corner-image{
+  position:fixed;
+  bottom:8px;
+  left:8px;
+  max-width:450px;
+  height:auto;
+  z-index:10;
+  pointer-events:none;
+}
+
+/* --- MOBILE MODE (class added by JS detection) --- */
+html.mobile body{
+  display:block;
+  height:auto;
+  min-height:100vh;
+  min-height:100dvh;
+  overflow-x:hidden;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:20px 12px calc(120px + env(safe-area-inset-bottom, 0px));
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+html.mobile h1{
+  font-size:1.35rem;
+  line-height:1.3;
+}
+html.mobile .warning{
+  font-size:13px;
+  margin-bottom:18px;
+}
+html.mobile .grid{
+  grid-template-columns:1fr;
+  gap:10px;
+  max-width:100%;
+}
+html.mobile .grid a{
+  min-height:48px;
+  padding:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  backdrop-filter:none;
+  background:rgba(20,20,20,0.92);
+}
+/* no sticky hover on touch; use press feedback instead */
+html.mobile .grid a:hover{
+  background:rgba(20,20,20,0.92);
+  color:white;
+  transform:none;
+}
+html.mobile .grid a:active{
+  background:#0ff;
+  color:black;
+}
+html.mobile .grid a:hover::before,
+html.mobile .grid a:hover::after{
+  opacity:0;
+}
+html.mobile .main-site{
+  display:block;
+  padding:15px;
+  box-sizing:border-box;
+}
+html.mobile .corner-image{
+  display:none;
+}
+html.mobile .footnote{
+  font-size:11px;
+  bottom:calc(8px + env(safe-area-inset-bottom, 0px));
+}
+html.mobile #floofy-widget{
+  bottom:calc(40px + env(safe-area-inset-bottom, 0px));
+  right:14px;
+}
+html.mobile #floofy-btn{
+  width:56px;
+  height:56px;
+  font-size:30px;
+}
+html.mobile #floofy-btn:hover{
+  transform:none;
+}
+html.mobile #floofy-panel{
+  position:fixed;
+  left:8px;
+  right:8px;
+  bottom:calc(110px + env(safe-area-inset-bottom, 0px));
+  width:auto;
+  height:min(70vh, 500px);
+  height:min(70dvh, 500px);
+}
+/* 16px inputs stop iOS from zooming the page on focus */
+html.mobile #floofy-input{
+  font-size:16px;
+  padding:10px 12px;
+}
+html.mobile #floofy-send{
+  min-height:40px;
+  padding:0 16px;
+  font-size:14px;
+}
+html.mobile #floofy-chat{
+  font-size:15px;
+}
+html.mobile .floofy-msg{
+  max-width:90%;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="bg"></canvas>
+<img src="IMG_20261114_144608.jpg" alt="Floofytech mascot" class="corner-image">
+<link rel="icon" type="image/png" href="/favcon.png">
+
+<div class="container">
+  <h1>welcome to the FloofyTech webportal :)</h1>
+  <div class="warning">JUST HAVE FUN ITS NOT ALL SERIOUS! ok?</div>
+
+  <div class="grid">
+    <a href="a-a-a-test.html">A A A Test</a>
+    <a href="df2.html">Dark Floof 2</a>
+    <a href="darkfloof.html">Dark Floof</a>
+    <a href="husky-minigun-mayham.html">Husky Minigun Mayhem</a>
+    <a href="neongrid.html">Neon Grid</a>
+    <a href="wall.html">Wall</a>
+    <a href="numasfuk-interpreter.html">NUMASFUK Interpreter</a>
+    <a href="husky-pong.html">husky-pong</a>
+    <a href="https://github.com/floofytech-open-sourse-projects?tab=repositories">our things</a>
+    <a href="what-is-lydia.html">What is Lydia?</a>
+    <a href="df3.html">dark-floof-3</a>
+    <a href="df4.html">dark-floof-4</a>
+    <a href="df_judgment_day.html">dark floof judgment day</a>
+    <a href="https://archive.org/details/floof-os" target="_blank">Install FloofOS</a>
+    <a href="https://archive.org/details/floofos-2" target="_blank">Install FloofOS-2</a>
+    <a href="Lyd-ai.html">lyd-AI</a>
+    <a href="Husky-postal-service.html">husky postal service</a>
+    <a href="Bossy-floof.html">bossy floof</a>
+    <a href="FloofOS-sim.html">FloofOS simulator</a>
+    <a href="Ruff-ruff-rally.html">RUFF RUFF RALLY</a>
+    <a href="Huskies-VS-Cats.html">Huskies VS Cats</a>
+    <a href="FloofyTech-tycoon.htm">FloofyTech tycoon</a>
+    <a href="Husky-treat-smash.htm">husky treat smash</a>
+    <a href="Husky-Command.htm">husky command</a>
+    <a href="Floofykart.htm">floofy kart</a>
+    <a href="Factory-of-floof.htm">factory of floof</a>
+    <a href="Husky-soap-oprea.htm">husky soap oprea</a>
+    <a href="Alone-Alive-and-Aware.htm">Alone Alive and Aware</a>
+    <a href="dogpen-home.html">Dogpen</a>
+    <a href="dark-floof-5.html">dark floof v</a>
+    <a href="https://play.google.com/store/apps/details?id=co.ivdigital.cogito">play our new game made with IVDIGITAL (android)</a>
+    <a href="https://testflight.apple.com/join/ntdXx6AN">play our new game made with IVDIGITAL (ios testing)</a>
+    <a href="https://github.com/floofytech-open-sourse-projects/Add-anything-here">add literally anything</a>
+  </div>
+
+  <a class="main-site" href="https://sites.google.com/view/floofytech-webportal" target="_blank">
+    Go to Main Site (UNSTABLE)
+  </a>
+</div>
+
+<div class="footnote" id="lydia-foot">join the Lydia fanclub</div>
+
+<noscript>
+  <pre>
+ / \__
+(    @\___
+ /         O
+/   (_____/
+/_____/   U
+
+NOSCRIPT HUSKY: ONLY BOTS AND ANCIENT BROWSERS SEE THIS.
+    go twiddle your thumbs this needs JavaScript
+  </pre>
+</noscript>
+
+<!-- Lyd‑AI Widget -->
+<div id="floofy-widget"></div>
+
+<script>
+window.onload = () => document.body.classList.add("loaded");
+
+/* --- MOBILE DETECTION --- */
+const mobileQuery = window.matchMedia("(max-width: 768px), (pointer: coarse)");
+const uaMobile =
+  /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent) ||
+  (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1); // iPadOS
+let isMobile = false;
+
+function updateMobile() {
+  isMobile = uaMobile || mobileQuery.matches;
+  document.documentElement.classList.toggle("mobile", isMobile);
+}
+updateMobile();
+if (mobileQuery.addEventListener) mobileQuery.addEventListener("change", updateMobile);
+else mobileQuery.addListener(updateMobile);
+window.addEventListener("resize", updateMobile);
+
+/* BACKGROUND GRID */
+const canvas = document.getElementById("bg");
+const ctx = canvas.getContext("2d");
+
+function resize(){
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+let offset = 0;
+const colors = ["#800080", "#0b2f0f", "#0000ff", "#ff8000"];
+const cycleDuration = 120000;
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.slice(1), 16),
+        bh = parseInt(b.slice(1), 16);
+  const ar = (ah >> 16) & 0xff,
+        ag = (ah >> 8) & 0xff,
+        ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff,
+        bg = (bh >> 8) & 0xff,
+        bb = bh & 0xff;
+  const rr = Math.round(ar + (br-ar)*t);
+  const rg = Math.round(ag + (bg-ag)*t);
+  const rb = Math.round(ab + (bb-ab)*t);
+  return `rgb(${rr},${rg},${rb})`;
+}
+
+function getCurrentColor() {
+  const now = Date.now() % cycleDuration;
+  const t = now / cycleDuration * colors.length;
+  const index = Math.floor(t);
+  const nextIndex = (index + 1) % colors.length;
+  return lerpColor(colors[index], colors[nextIndex], t - index);
+}
+
+function draw(){
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.lineWidth = isMobile ? 1 : 2;
+  const currentColor = getCurrentColor();
+  ctx.strokeStyle = currentColor;
+
+  const spacing = isMobile ? 60 : 40; // fewer lines = smoother on phones
+  offset += 0.5;
+
+  for(let x=-spacing; x<canvas.width+spacing; x+=spacing){
+    ctx.beginPath();
+    ctx.moveTo(x + (offset % spacing), 0);
+    ctx.lineTo(x + (offset % spacing), canvas.height);
+    ctx.stroke();
+  }
+
+  for(let y=-spacing; y<canvas.height+spacing; y+=spacing){
+    ctx.beginPath();
+    ctx.moveTo(0, y + (offset % spacing));
+    ctx.lineTo(canvas.width, y + (offset % spacing));
+    ctx.stroke();
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* --- Lydia Fanclub Token --- */
+const foot = document.getElementById("lydia-foot");
+if (localStorage.getItem("lydiaFanclub") === "member") {
+  foot.textContent = "Lydia fanclub member";
+}
+foot.addEventListener("click", () => {
+  localStorage.setItem("lydiaFanclub", "member");
+  foot.textContent = "thanks for joining";
+  foot.style.textShadow = "0 0 12px #0ff";
+  setTimeout(() => {
+    foot.textContent = "Lydia fanclub member";
+    foot.style.textShadow = "0 0 5px #0ff";
+  }, 2000);
+});
+
+/* --- Lyd‑AI Widget Logic --- */
+const widget = document.getElementById("floofy-widget");
+widget.innerHTML = `
+  <button id="floofy-btn">🐺</button>
+  <div id="floofy-panel">
+    <div id="floofy-header">
+      <div>
+       🐺 • Lyd‑AI • FloofyTech
+        <div id="floofy-sub">FloofyTech Assistant</div>
+      </div>
+      <button id="floofy-teach-btn" class="floofy-hbtn" title="Teach Lyd‑AI new facts">🎓 Teach</button>
+      <button id="floofy-lite-btn" class="floofy-hbtn" title="Switch between full AI and instant lite mode">⚡ Lite</button>
+    </div>
+    <div id="floofy-chat"></div>
+    <div id="floofy-teach">
+      <div class="ft-title">🎓 Teach Lyd‑AI</div>
+      <div class="ft-note">Write a fact in a full sentence. Lyd‑AI remembers it on this device and uses it when a question matches. You can also type "remember: ..." in the chat.</div>
+      <textarea id="ft-text" maxlength="300" placeholder="e.g. Husky Pong is a pong game where you play as a husky."></textarea>
+      <div class="ft-row"><button id="ft-add">Add fact</button><button id="ft-close">Done</button></div>
+      <div id="ft-list"></div>
+    </div>
+    <div id="floofy-input-row">
+      <input id="floofy-input" placeholder="Ask Lyd‑AI…">
+      <button id="floofy-send">Send</button>
+    </div>
+  </div>
+`;
+
+const btn   = document.getElementById("floofy-btn");
+const panel = document.getElementById("floofy-panel");
+const chat  = document.getElementById("floofy-chat");
+const input = document.getElementById("floofy-input");
+const send  = document.getElementById("floofy-send");
+
+let pipe = null;
+let busy = false;
+let fallbackMode = false;
+
+/* Lite mode: simple husky replies used when the AI model can't be downloaded */
+const LITE_RULES = [
+  [/\b(hi|hello|hey|yo|sup|howdy|hiya)\b/, [
+    "WOOF! Hello hooman!", "*zoomies* Hey hey hey!", "Hi! Tail wagging at maximum speed.",
+    "Hello! I was just staring at a wall. Perfect timing."]],
+  [/how are you|how's it going|hows it going|you ok|you good/, [
+    "Floofy and fluffy, thanks! How are you?", "Peak husky energy. Zero regrets.",
+    "Great! Somebody said the word 'walk' earlier and I'm still not over it."]],
+  [/who are you|what are you|your name|who made you|who built you/, [
+    "I'm Lyd-AI, the FloofyTech husky assistant. Lite mode right now, but still floofy.",
+    "Lyd-AI! Part husky, part code, all chaos."]],
+  [/what can you do|\bhelp\b|commands|what do you know/, [
+    "I can point you at games, FloofOS, Dogpen, our GitHub and more. Just ask!",
+    "Ask me about games, FloofOS, Lydia, or the FloofyTech projects."]],
+  [/floofos|floof os|\bos\b|operating system/, [
+    "FloofOS is our own OS project! Use the Install FloofOS buttons on the portal.",
+    "There's FloofOS, FloofOS-2 and even a FloofOS simulator if you just want to poke around."]],
+  [/dogpen|dogpack|floofcell/, [
+    "Dogpen, DOGPACK and Floofcell are all part of the FloofyTech ecosystem. Check the portal links!",
+    "Dogpen has its own page on the portal. Go sniff around!"]],
+  [/lydia|\blyd\b|fanclub|fan club/, [
+    "Lydia is the heart of the FloofyTech fanclub. Click 'join the Lydia fanclub' in the corner!",
+    "Want to know more? Check the 'What is Lydia?' page on the portal."]],
+  [/dark ?floof/, [
+    "The Dark Floof series goes all the way up to Judgment Day and Dark Floof V. Start with Dark Floof 1!",
+    "Dark Floof 5 is the newest one. Dark Floof Judgment Day is a wild ride too."]],
+  [/minigun|mayhem|shoot|shooter/, [
+    "Husky Minigun Mayhem is exactly what it sounds like. Chaos with a minigun.",
+    "Try Husky Minigun Mayhem or Huskies VS Cats!"]],
+  [/race|racing|kart|rally|drive/, [
+    "Floofy Kart and Ruff Ruff Rally are your racing options. Go fast, bork loud!"]],
+  [/pong/, ["Husky Pong is on the portal. Beat the husky if you can."]],
+  [/tycoon|factory|idle|business/, [
+    "FloofyTech Tycoon and Factory of Floof are the management games. Build your floof empire!"]],
+  [/treat|snack|food|hungry|eat/, [
+    "Did somebody say treat?! Try Husky Treat Smash!", "Food? FOOD?! Where?!"]],
+  [/story|scary|horror|alone|alive|aware/, [
+    "Alone Alive and Aware is the one for the story fans. Bring a flashlight."]],
+  [/mail|post|delivery/, ["Husky Postal Service. Fast delivery, slightly chewed packages."]],
+  [/github|source|code|open ?source|repo/, [
+    "Our open source stuff lives on GitHub. Hit the 'our things' button on the portal!",
+    "Want to add something? There's an 'add literally anything' repo. Literally anything."]],
+  [/android|google play|\bios\b|iphone|testflight|ivdigital|cogito/, [
+    "We made a new game with IVDIGITAL! Android is on Google Play and iOS is in TestFlight testing. Links are on the portal."]],
+  [/install|download/, [
+    "FloofOS and FloofOS-2 are both on archive.org. Use the Install buttons on the portal."]],
+  [/game|play|bored|something fun|recommend/, [
+    "Try Husky Minigun Mayhem or Ruff Ruff Rally!", "Floofy Kart is a classic. Go play!",
+    "Dark Floof 5 is the newest in the series.", "Feeling brave? Dark Floof Judgment Day."]],
+  [/husky|dog|puppy|wolf|floof|fluff/, [
+    "Huskies are 90% fluff, 10% opinions, and 100% chaos.", "AWOOO! Floof appreciated.",
+    "Fun fact: a husky's tail is great for wagging and bad for dignity."]],
+  [/joke|funny|make me laugh/, [
+    "Why did the husky cross the road? To get to the zoomies on the other side.",
+    "What do you call a husky that does programming? A bork-end developer.",
+    "My code has zero bugs. Only squirrels."]],
+  [/love you|good bot|good boy|good girl|thank|thanks|cool|nice|awesome/, [
+    "*happy tail noises*", "Aww, thanks hooman!", "Best compliment of my day. Maybe my week."]],
+  [/stupid|dumb|bad bot|suck|useless/, [
+    "Ouch. I'm in lite mode, go easy on me!", "*sad husky eyes*"]],
+  [/real ai|smart|lite mode|why.*(dumb|simple)|model/, [
+    "I'm in lite mode because the full AI model couldn't download on this network. Refresh the page to try again!"]],
+  [/bye|goodbye|cya|see you|later|gtg/, [
+    "Bye hooman! *howls into the distance*", "See you! Don't forget to pet a husky."]]
+];
+
+const LITE_DEFAULTS = [
+  "*tilts head* ...woof?",
+  "I only know husky basics in lite mode. Ask about games, FloofOS or Lydia!",
+  "Bork! Try asking about FloofyTech stuff.",
+  "I didn't get that one. Ask me for a game recommendation!",
+  "*stares at you, then at the wall, then at you*"
+];
+
+function localReply(text) {
+  const t = text.toLowerCase();
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const best = scoreTaught(text);
+  if (best.length && best[0].s >= 2) return best[0].f;
+  for (const [re, replies] of LITE_RULES) {
+    if (re.test(t)) return pick(replies);
+  }
+  if (best.length) return best[0].f;
+  return pick(LITE_DEFAULTS);
+}
+
+/* --- Lyd-AI "training": facts the model is given (edit these freely!) --- */
+const BASE_PROMPT =
+  "You are Lyd-AI, the official FloofyTech husky assistant on the FloofyTech webportal. " +
+  "Personality: playful, chaotic husky energy, friendly. " +
+  "Rules: answer in 1 to 3 short sentences. Answer the question first, then add a little husky flavor. " +
+  "Base your answers on the facts you are given (in this message or marked 'Facts you can use'). If you do not know something, say so and suggest checking the portal. " +
+  "Never invent links, names, dates or features. When you mention a page or game, use its exact name from the facts.\n\n" +
+  "About FloofyTech: a fun, creative web portal full of experiments, games and projects. The tone is 'just have fun, it's not all serious'. " +
+  "The portal has a button for each project. Lydia has a fanclub (click 'join the Lydia fanclub' in the corner).\n\n" +
+  "Examples:\n" +
+  "User: hi\nAssistant: WOOF! Hello hooman! What do you want to explore?\n" +
+  "User: what games do you have?\nAssistant: Loads! Try Husky Minigun Mayhem, Ruff Ruff Rally or Floofy Kart. Zoomies guaranteed.";
+
+const KNOWLEDGE = [
+  [/game|play|fun|bored|recommend/, "Games on the portal: Husky Minigun Mayhem, Husky Pong, Ruff Ruff Rally, Huskies VS Cats, Floofy Kart, Husky Treat Smash, Husky Command, Husky Postal Service, Bossy Floof, FloofyTech Tycoon, Factory of Floof, Husky Soap Oprea, Alone Alive and Aware."],
+  [/dark ?floof/, "The Dark Floof series: Dark Floof, Dark Floof 2, Dark Floof 3, Dark Floof 4, Dark Floof Judgment Day and Dark Floof V (the newest)."],
+  [/floofos|floof os|operating system|\bos\b|install/, "FloofOS and FloofOS-2 are operating system projects you can install from archive.org using the Install buttons on the portal. There is also a FloofOS simulator page."],
+  [/lydia|\blyd\b|fanclub/, "Lydia has a page called 'What is Lydia?' on the portal and a fanclub. Click 'join the Lydia fanclub' in the bottom right corner to become a member. Lyd-AI is named after her."],
+  [/dogpen|dogpack|floofcell/, "Dogpen, DOGPACK and Floofcell are part of the FloofyTech ecosystem. Dogpen has its own page on the portal."],
+  [/github|source|code|open ?source|repo|add anything/, "FloofyTech's open source projects are on GitHub (the 'our things' button). There is also an 'add literally anything' repo where anyone can contribute."],
+  [/android|google play|ios|iphone|testflight|ivdigital|cogito|new game|mobile/, "FloofyTech made a new game with IVDIGITAL. It is on Google Play for Android and in TestFlight testing for iOS. Both links are on the portal."],
+  [/main site|website|google sites/, "The portal has a 'Go to Main Site' button. It is marked UNSTABLE, so it might act weird."],
+  [/numasfuk|interpreter|neon ?grid|wall|a a a/, "Other experiments on the portal: NUMASFUK Interpreter, Neon Grid, Wall and A A A Test."],
+  [/lyd-?ai|chatbot|\bai\b|model|who are you/, "Lyd-AI is the FloofyTech assistant. It runs fully in your browser, with no server, using a small open AI model."]
+];
+
+/* --- Taught facts (saved in this browser) --- */
+const TAUGHT_KEY = "lydTaught";
+let taught = [];
+try { taught = JSON.parse(localStorage.getItem(TAUGHT_KEY)) || []; } catch (e) {}
+function saveTaught() { try { localStorage.setItem(TAUGHT_KEY, JSON.stringify(taught)); } catch (e) {} }
+
+const STOP = new Set("the and for with that this you your what who how does can about tell are was has have its from not but all any".split(" "));
+function words(t) {
+  return (t.toLowerCase().match(/[a-z0-9']{3,}/g) || [])
+    .filter((w) => !STOP.has(w))
+    .map((w) => w.replace(/s$/, ""));
+}
+function scoreTaught(text) {
+  const q = new Set(words(text));
+  if (!q.size) return [];
+  return taught
+    .map((f) => ({ f, s: words(f).filter((w) => q.has(w)).length }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s);
+}
+function addTaught(fact) {
+  fact = fact.trim().slice(0, 300);
+  if (!fact || taught.includes(fact)) return false;
+  taught.push(fact);
+  if (taught.length > 50) taught.shift();
+  saveTaught();
+  return true;
+}
+
+function getFacts(text) {
+  const t = text.toLowerCase();
+  const hits = KNOWLEDGE.filter(([re]) => re.test(t)).map(([, f]) => f);
+  const mine = scoreTaught(text).slice(0, 3).map((x) => x.f);
+  return [...mine, ...hits].slice(0, 4).join("\n");
+}
+
+const history = [
+  { role: "system", content: BASE_PROMPT }
+];
+
+/* --- Auto-link page names in Lyd-AI's replies (built from the portal buttons) --- */
+let linkRe = null;
+let linkMap = new Map();
+
+function buildLinks() {
+  const add = (name, href) => {
+    const n = name.toLowerCase().replace(/[?!.]+$/, "").trim();
+    if (n.length < 5 || !href) return;
+    if (!linkMap.has(n)) linkMap.set(n, href);
+    const spaced = n.replace(/-/g, " ");
+    if (!linkMap.has(spaced)) linkMap.set(spaced, href);
+  };
+  document.querySelectorAll(".grid a").forEach((a) => add(a.textContent, a.getAttribute("href")));
+  const find = (part) => {
+    const a = [...document.querySelectorAll(".grid a")].find((x) => (x.getAttribute("href") || "").includes(part));
+    return a ? a.getAttribute("href") : null;
+  };
+  add("lydia", find("what-is-lydia"));
+  add("google play", find("play.google.com"));
+  add("testflight", find("testflight"));
+  const main = document.querySelector(".main-site");
+  if (main) add("main site", main.getAttribute("href"));
+  if (!linkMap.size) return;
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const keys = [...linkMap.keys()].sort((a, b) => b.length - a.length).map(esc);
+  linkRe = new RegExp("\\b(" + keys.join("|") + ")\\b", "gi");
+}
+
+function linkify(text) {
+  const frag = document.createDocumentFragment();
+  if (!linkRe && !linkMap.size) buildLinks();
+  if (!linkRe) { frag.append(text); return frag; }
+  linkRe.lastIndex = 0;
+  let last = 0, m;
+  while ((m = linkRe.exec(text))) {
+    if (m.index > last) frag.append(text.slice(last, m.index));
+    const a = document.createElement("a");
+    a.href = linkMap.get(m[0].toLowerCase());
+    a.textContent = m[0];
+    a.target = "_blank";
+    a.rel = "noopener";
+    frag.append(a);
+    last = m.index + m[0].length;
+  }
+  frag.append(text.slice(last));
+  return frag;
+}
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  if (role === "system") {
+    div.className = "floofy-msg floofy-system";
+  } else {
+    div.className = "floofy-msg " + (role === "assistant" ? "floofy-lyd" : "floofy-user");
+  }
+  if (role === "assistant") div.appendChild(linkify(text));
+  else div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+/* --- Teach panel + Lite button --- */
+const teachBtn = document.getElementById("floofy-teach-btn");
+const liteBtn  = document.getElementById("floofy-lite-btn");
+const teachBox = document.getElementById("floofy-teach");
+const teachTxt = document.getElementById("ft-text");
+const teachList = document.getElementById("ft-list");
+
+function renderTaught() {
+  teachList.innerHTML = "";
+  if (!taught.length) {
+    teachList.innerHTML = '<div class="ft-note">Nothing taught yet.</div>';
+    return;
+  }
+  taught.forEach((f, i) => {
+    const row = document.createElement("div");
+    row.className = "ft-item";
+    const span = document.createElement("span");
+    span.textContent = f;
+    const del = document.createElement("button");
+    del.className = "ft-del";
+    del.textContent = "✕";
+    del.onclick = () => { taught.splice(i, 1); saveTaught(); renderTaught(); };
+    row.append(span, del);
+    teachList.appendChild(row);
+  });
+}
+teachBtn.onclick = () => { renderTaught(); teachBox.style.display = "flex"; };
+document.getElementById("ft-close").onclick = () => { teachBox.style.display = "none"; };
+document.getElementById("ft-add").onclick = () => {
+  if (addTaught(teachTxt.value)) { teachTxt.value = ""; renderTaught(); }
+};
+
+/* Brain modes: normal (0.5B model), smart (1.5B model, needs WebGPU), lite (instant canned replies) */
+const HAS_GPU = !!navigator.gpu;
+let mode = "normal";
+try {
+  mode = localStorage.getItem("lydMode") || (localStorage.getItem("lydLite") === "1" ? "lite" : "normal");
+} catch (e) {}
+if (mode === "smart" && !HAS_GPU) mode = "normal";
+let liteMode = mode === "lite";
+let loadId = 0;
+let loadedMode = null;
+const MODES = HAS_GPU ? ["normal", "smart", "lite"] : ["normal", "lite"];
+const MODE_LABEL = { lite: "⚡ Lite", normal: "🐺 Normal", smart: "🧠 Smart" };
+
+function updateLiteBtn() {
+  liteBtn.textContent = MODE_LABEL[mode];
+  liteBtn.classList.toggle("active", mode !== "normal");
+  liteBtn.title = "Tap to change brain: Normal, Smart (bigger download, needs WebGPU) or Lite (instant)";
+}
+updateLiteBtn();
+if (liteMode) addMessage("assistant", "Lite mode is ON. Instant simple replies, no model download. Tap the brain button to change.");
+
+function setMode(next) {
+  mode = next;
+  liteMode = mode === "lite";
+  try { localStorage.setItem("lydMode", mode); } catch (e) {}
+  updateLiteBtn();
+  if (liteMode) {
+    loadId++; // cancel any download still in progress
+    addMessage("system", "Lite mode ON: instant simple replies.");
+    input.disabled = false;
+    send.disabled = false;
+    return;
+  }
+  fallbackMode = false;
+  if (pipe && loadedMode === mode) {
+    addMessage("system", MODE_LABEL[mode] + " brain active.");
+    input.disabled = false;
+    send.disabled = false;
+    return;
+  }
+  addMessage("system", mode === "smart"
+    ? "Smart mode: loading a bigger AI (about 1.2 GB the first time, then cached)…"
+    : "Loading the normal AI…");
+  if (pipe && pipe.dispose) { try { pipe.dispose(); } catch (e) {} }
+  pipe = null;
+  modelStarted = false;
+  startModel();
+}
+liteBtn.onclick = () => setMode(MODES[(MODES.indexOf(mode) + 1) % MODES.length]);
+
+let modelStarted = false;
+function startModel() {
+  if (modelStarted) return;
+  modelStarted = true;
+  initModel();
+}
+
+btn.onclick = () => {
+  const opening = panel.style.display !== "flex";
+  panel.style.display = opening ? "flex" : "none";
+  // On mobile, only download the AI model once the chat is opened
+  if (opening && !liteMode) startModel(); // no-op if already loading/loaded; retries after a failure
+};
+
+const LIB_URLS = [
+  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+  "https://fastly.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+  "https://gcore.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm",
+  "https://esm.run/@huggingface/transformers@3.8.1",
+  "https://esm.sh/@huggingface/transformers@3.8.1",
+  "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/dist/transformers.min.js",
+  "https://unpkg.com/@huggingface/transformers@3.8.1/dist/transformers.min.js"
+];
+// Where to download the model from, tried in order.
+// Add your own host here (it must mirror Hugging Face's layout:
+//   <host>onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/<file>   and be CORS-enabled)
+const MODEL_HOSTS = [
+  null,                         // default: https://huggingface.co/
+  "https://hf.co/",             // Hugging Face short domain (helps if only huggingface.co is filtered)
+  "https://hf-mirror.com/",     // public mirror
+  // "https://models.your-site.com/",   <- your own bucket/CDN (R2, S3, B2...), uncomment and edit
+];
+
+// Test a host without editing the file: yoursite.com/?modelhost=https://example.com/
+(function () {
+  try {
+    const h = new URLSearchParams(location.search).get("modelhost");
+    if (h && /^https:\/\//.test(h)) MODEL_HOSTS.unshift(h.endsWith("/") ? h : h + "/");
+  } catch (e) {}
+})();
+
+async function loadLib(onStatus) {
+  let lastErr;
+  for (const url of LIB_URLS) {
+    try {
+      return await import(url);
+    } catch (e) {
+      console.warn("Library load failed:", url, e);
+      lastErr = e;
+    }
+  }
+  throw lastErr;
+}
+
+const MODEL_IDS = {
+  normal: "onnx-community/Qwen2.5-0.5B-Instruct",
+  smart:  "onnx-community/Qwen2.5-1.5B-Instruct"
+};
+
+async function initModel() {
+  const myId = ++loadId;
+  const wantMode = mode === "smart" ? "smart" : "normal";
+  send.disabled = true;
+  input.disabled = true;
+  addMessage("system", wantMode === "smart"
+    ? "Booting Lyd‑AI Smart… first load downloads about 1.2 GB (cached after that)."
+    : "Booting Lyd‑AI… first load downloads the model (about 500-800 MB, cached after that).");
+
+  const statusEl = chat.lastChild;
+  let lastPct = -1;
+  let stage = "library";
+  let loaded = null;
+
+  try {
+    const lib = await loadLib();
+    if (myId !== loadId) return;
+    const { pipeline, env } = lib;
+
+    stage = "model";
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+
+    const devices = wantMode === "smart" ? ["webgpu"] : (HAS_GPU ? ["webgpu", "wasm"] : ["wasm"]);
+    let lastErr;
+
+    outer:
+    for (const host of MODEL_HOSTS) {
+      env.remoteHost = host || "https://huggingface.co/";
+      for (const device of devices) {
+        try {
+          loaded = await pipeline("text-generation", MODEL_IDS[wantMode], {
+            device,
+            dtype: device === "webgpu" ? "q4f16" : "q4",
+            progress_callback: (p) => {
+              if (myId === loadId && p.status === "progress" && p.total) {
+                const pct = Math.round(p.progress);
+                if (pct !== lastPct) {
+                  lastPct = pct;
+                  statusEl.textContent = `Downloading Lyd‑AI brain… ${pct}%`;
+                }
+              }
+            }
+          });
+          break outer;
+        } catch (e) {
+          console.warn("Model load failed:", host || "huggingface.co", device, e);
+          lastErr = e;
+          if (myId === loadId) statusEl.textContent = "Retrying a different way…";
+        }
+      }
+    }
+    if (myId !== loadId) return;
+    if (!loaded) throw lastErr;
+
+    pipe = loaded;
+    loadedMode = wantMode;
+    statusEl.remove();
+    addMessage("assistant", wantMode === "smart"
+      ? "Lyd‑AI Smart online. Big brain engaged. What do you need, hooman?"
+      : "Lyd‑AI online. Systems nominal. What do you need, hooman?");
+    input.disabled = false;
+    send.disabled = false;
+    if (!isMobile) input.focus();
+  } catch (e) {
+    if (myId !== loadId) return;
+    console.error(e);
+
+    // Smart failed (too big / no GPU memory): drop back to the normal model
+    if (wantMode === "smart") {
+      statusEl.textContent = "Smart mode couldn't load (" + (e && e.message ? e.message : e) + "). Switching to Normal…";
+      mode = "normal";
+      try { localStorage.setItem("lydMode", mode); } catch (err) {}
+      updateLiteBtn();
+      modelStarted = false;
+      startModel();
+      return;
+    }
+
+    let msg = stage === "library"
+      ? "Lyd‑AI couldn't load its code from the CDN."
+      : "Lyd‑AI couldn't download its model.";
+    msg += " Details: " + (e && e.message ? e.message : e);
+    statusEl.textContent = msg;
+
+    fallbackMode = true;
+    addMessage("system", "Switched to lite mode (simple replies). Refresh the page to try the full AI again.");
+    addMessage("assistant", "Lyd‑AI lite online. Ask me about games, FloofOS or Lydia!");
+    input.disabled = false;
+    send.disabled = false;
+  }
+}
+
+function cleanReply(t) {
+  t = (t || "").replace(/^\s*(assistant|lyd[-\u2011]?ai)\s*:\s*/i, "").trim();
+  t = t.split(/\n\s*(?:user|human)\s*:/i)[0].trim();      // drop made-up follow-up turns
+  if (!/[.!?\u2026)*"']$/.test(t)) {                       // cut off mid-sentence: keep whole sentences
+    const i = Math.max(t.lastIndexOf(". "), t.lastIndexOf("! "), t.lastIndexOf("? "));
+    if (i > 20) t = t.slice(0, i + 1);
+  }
+  return t;
+}
+
+async function sendMsg() {
+  if ((!pipe && !fallbackMode && !liteMode) || busy) return;
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = "";
+  addMessage("user", text);
+
+  // chat shortcut: "remember: ..." or "/teach ..."
+  const tm = text.match(/^(?:\/teach|remember:?)\s+(.+)/i);
+  if (tm) {
+    addMessage("assistant", addTaught(tm[1]) ? "Got it! I'll remember that." : "I already know that one, or it was empty!");
+    return;
+  }
+
+  busy = true;
+  send.disabled = true;
+
+  const thinking = document.createElement("div");
+  thinking.className = "floofy-msg floofy-system";
+  thinking.textContent = "Lyd‑AI is thinking…";
+  chat.appendChild(thinking);
+  chat.scrollTop = chat.scrollHeight;
+
+  // system prompt + last 8 messages (keeps the tiny model fast and on topic)
+  // Facts go right next to the question: small models follow them much better there
+  const facts = getFacts(text);
+  const recent = history.slice(1).slice(mode === "smart" ? -12 : -8);
+  const userTurn = facts ? "Facts you can use:\n" + facts + "\n\nQuestion: " + text : text;
+  const messages = [history[0], ...recent, { role: "user", content: userTurn }];
+
+  try {
+    let reply;
+    if (liteMode || fallbackMode || !pipe) {
+      await new Promise((r) => setTimeout(r, 400));
+      reply = localReply(text);
+    } else {
+      const out = await pipe(messages, {
+        max_new_tokens: 160,
+        do_sample: true,
+        temperature: 0.45,
+        top_p: 0.9,
+        repetition_penalty: 1.1,
+      });
+      reply = cleanReply(out[0].generated_text.at(-1).content) || "*tilts head* …woof?";
+    }
+
+    thinking.remove();
+    addMessage("assistant", reply);
+
+    history.push({ role: "user", content: text });
+    history.push({ role: "assistant", content: reply });
+  } catch (e) {
+    console.error(e);
+    thinking.remove();
+    addMessage("system", "Lyd‑AI encountered an issue. Check console for details.");
+  } finally {
+    busy = false;
+    send.disabled = false;
+  }
+}
+
+send.onclick = sendMsg;
+input.onkeydown = (e) => { if (e.key === "Enter") sendMsg(); };
+
+// Desktop loads the model right away; mobile waits until the chat is opened
+if (!isMobile && !liteMode) startModel();
+</script>
+
+</body>
+</html>
